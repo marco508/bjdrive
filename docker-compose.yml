@@ -1,0 +1,72 @@
+# BjDrive — orchestration complète (base de données + API + application web)
+#
+#   docker compose up --build
+#   → API    : http://localhost:3007/api
+#   → Web    : http://localhost:8080
+#   → DB     : localhost:5432 (postgres/postgis)
+#
+# Renseignez vos clés (JWT, KkiaPay) dans un fichier .env à la racine
+# (voir backend/.env.example).
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: bjdrive-db
+    environment:
+      POSTGRES_USER: bjdrive
+      POSTGRES_PASSWORD: bjdrive
+      POSTGRES_DB: bjdrive
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bjdrive -d bjdrive"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: bjdrive-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://bjdrive:bjdrive@db:5432/bjdrive?schema=public"
+      JWT_SECRET: "${JWT_SECRET:-dev-secret-change-me}"
+      JWT_EXPIRES_IN: "7d"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@bjdrive.bj}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-changez-moi}"
+      SUPERADMIN_NAME: "Super Admin"
+      COMMISSION_RATE: "0.10"
+      MAX_DELIVERIES_PER_DAY: "5"
+      DEFAULT_BASE_DELIVERY_FEE: "500"
+      DEFAULT_PER_KM_FEE: "100"
+      KKIAPAY_PUBLIC_KEY: "${KKIAPAY_PUBLIC_KEY:-}"
+      KKIAPAY_PRIVATE_KEY: "${KKIAPAY_PRIVATE_KEY:-}"
+      KKIAPAY_SECRET: "${KKIAPAY_SECRET:-}"
+      KKIAPAY_SANDBOX: "${KKIAPAY_SANDBOX:-true}"
+      PORT: "3007"
+      CORS_ORIGIN: "http://localhost:5173,http://localhost:8080"
+    ports:
+      - "3007:3007"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "${VITE_API_URL:-http://localhost:3007/api}"
+        VITE_SOCKET_URL: "${VITE_SOCKET_URL:-http://localhost:3007}"
+        VITE_KKIAPAY_PUBLIC_KEY: "${VITE_KKIAPAY_PUBLIC_KEY:-}"
+        VITE_GOOGLE_MAPS_API_KEY: "${VITE_GOOGLE_MAPS_API_KEY:-}"
+    container_name: bjdrive-web
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

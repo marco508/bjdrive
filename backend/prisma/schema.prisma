@@ -1,0 +1,279 @@
+// ---------------------------------------------------------------------------
+// BjDrive — schéma de données (PostgreSQL + PostGIS)
+// ---------------------------------------------------------------------------
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ------------------------------- Rôles -------------------------------------
+enum Role {
+  CLIENT
+  MANAGER // propriétaire/gérant d'une enseigne
+  DRIVER // livreur
+  SUPERADMIN // propriétaire de l'application
+}
+
+enum StoreStatus {
+  PENDING // en attente de vérification
+  VERIFIED // vérifiée → visible des clients
+  REJECTED
+  SUSPENDED
+}
+
+enum VerificationMethod {
+  ONSITE // visite sur place
+  VIDEO // appel vidéo
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT // créée, en attente de paiement
+  AWAITING_DRIVER // payée → en attente de prise en charge par un livreur
+  AWAITING_PICKUP // acceptée par un livreur → en attente de récupération
+  IN_DELIVERY // récupérée au magasin → en cours de livraison
+  DELIVERED // reçue (code de réception validé)
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  KKIAPAY
+  MTN_MOMO
+  MOOV_MONEY
+  BANK_CARD
+  BANK_ACCOUNT
+}
+
+// ------------------------------- Utilisateurs -------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CLIENT)
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stores          Store[]          @relation("StoreOwner")
+  driverProfile   DriverProfile?
+  orders          Order[]          @relation("OrderClient")
+  deliveries      Delivery[]       @relation("DeliveryDriver")
+  paymentAccounts PaymentAccount[]
+  verifications   Store[]          @relation("StoreVerifier")
+}
+
+// Coordonnées de versement (le manager/livreur reçoit ses paiements ici)
+model PaymentAccount {
+  id        String          @id @default(cuid())
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  provider  PaymentProvider
+  label     String? // ex: "Mon MoMo pro"
+  // numéro Mobile Money / Moov, IBAN, ou identifiant marchand KkiaPay
+  accountRef String
+  holderName String?
+  isDefault  Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+
+  @@index([userId])
+}
+
+// ------------------------------- Enseignes ----------------------------------
+model Category {
+  id     String  @id @default(cuid())
+  slug   String  @unique // supermarche, hypermarche, kiosque...
+  name   String
+  emoji  String?
+  order  Int     @default(0)
+  stores Store[]
+}
+
+model Store {
+  id          String      @id @default(cuid())
+  owner       User        @relation("StoreOwner", fields: [ownerId], references: [id])
+  ownerId     String
+  name        String
+  description String?
+  category    Category    @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  emoji       String?
+  color       String?
+  address     String
+  // Localisation sur la carte (lat/lng ; colonne géographique PostGIS ajoutée par apply-postgis)
+  lat         Float
+  lng         Float
+  deliveryFee Int? // surcharge éventuelle des frais de livraison de la boutique
+  status      StoreStatus @default(PENDING)
+
+  // Vérification
+  verificationMethod VerificationMethod?
+  verificationNotes  String?
+  verifiedBy         User?               @relation("StoreVerifier", fields: [verifiedById], references: [id])
+  verifiedById       String?
+  verifiedAt         DateTime?
+
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products Product[]
+  orders   Order[]
+
+  @@index([status])
+  @@index([categoryId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId     String
+  name        String
+  description String?
+  category    String? // rayon interne (Épicerie, Frais...)
+  emoji       String?
+  price       Int // FCFA
+  stock       Int      @default(0)
+  unit        String   @default("pièce")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([storeId])
+}
+
+// ------------------------------- Commandes ----------------------------------
+model Order {
+  id       String      @id @default(cuid())
+  client   User        @relation("OrderClient", fields: [clientId], references: [id])
+  clientId String
+  store    Store       @relation(fields: [storeId], references: [id])
+  storeId  String
+  status   OrderStatus @default(PENDING_PAYMENT)
+
+  // Montants (FCFA) — commission ajoutée EN PLUS du total
+  subtotal    Int // produits → revient à l'enseigne
+  deliveryFee Int // → revient au livreur
+  commission  Int // 10% → revient à la plateforme
+  total       Int // subtotal + deliveryFee + commission (payé par le client)
+
+  // Livraison
+  destLat     Float
+  destLng     Float
+  destAddress String?
+  destNote    String?
+
+  // Code de réception (type Uber Eats) remis au livreur à la livraison
+  receptionCode String
+
+  // Créneau de livraison proposé une fois la commande récupérée
+  scheduledDeliveryAt DateTime?
+  scheduleModified    Boolean   @default(false) // le client ne peut modifier qu'une seule fois
+
+  paymentStatus PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items    OrderItem[]
+  history  OrderStatusHistory[]
+  delivery Delivery?
+  payment  Payment?
+
+  @@index([status])
+  @@index([storeId])
+  @@index([clientId])
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  productId String
+  name      String
+  emoji     String?
+  price     Int
+  qty       Int
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  status    OrderStatus
+  byUserId  String?
+  at        DateTime    @default(now())
+
+  @@index([orderId])
+}
+
+// ------------------------------- Livraisons ---------------------------------
+model Delivery {
+  id         String    @id @default(cuid())
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String    @unique
+  driver     User      @relation("DeliveryDriver", fields: [driverId], references: [id])
+  driverId   String
+  earnings   Int // frais de livraison qui reviennent au livreur
+  acceptedAt DateTime  @default(now())
+  pickedUpAt DateTime?
+  deliveredAt DateTime?
+
+  @@index([driverId])
+}
+
+model DriverProfile {
+  id             String    @id @default(cuid())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String    @unique
+  vehicle        String    @default("Zémidjan")
+  isAvailable    Boolean   @default(true)
+  maxPerDay      Int? // surcharge éventuelle du plafond global
+  currentLat     Float?
+  currentLng     Float?
+  lastLocationAt DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// ------------------------------- Paiements ----------------------------------
+model Payment {
+  id          String          @id @default(cuid())
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String          @unique
+  provider    PaymentProvider @default(KKIAPAY)
+  providerRef String? // transactionId KkiaPay
+  amount      Int // total payé par le client
+  status      PaymentStatus   @default(PENDING)
+
+  // Répartition
+  storeAmount    Int // → enseigne
+  driverAmount   Int // → livreur
+  platformAmount Int // → plateforme (commission 10%)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------- Configuration application ------------------------
+model AppConfig {
+  id                 Int     @id @default(1)
+  baseDeliveryFee    Int     @default(500)
+  perKmFee           Int     @default(100)
+  commissionRate     Float   @default(0.10)
+  maxDeliveriesPerDay Int    @default(5)
+  currency           String  @default("XOF")
+  updatedAt          DateTime @updatedAt
+}
