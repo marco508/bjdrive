@@ -26,6 +26,12 @@ export class StoresController {
     return this.stores.categories()
   }
 
+  // Recherche produit multi-enseignes (public) : /products/search?q=riz&lat=..&lng=..
+  @Get('products/search')
+  searchProducts(@Query('q') q: string, @Query('lat') lat?: string, @Query('lng') lng?: string) {
+    return this.stores.searchProducts(q || '', lat ? Number(lat) : undefined, lng ? Number(lng) : undefined)
+  }
+
   @Get('stores')
   list(
     @Query('categoryId') categoryId?: string,

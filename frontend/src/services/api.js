@@ -99,6 +99,8 @@ export const api = {
     return get(`/stores${q ? '?' + q : ''}`, { auth: false })
   },
   store: (id) => get(`/stores/${id}`, { auth: false }),
+  searchProducts: (q, lat, lng) =>
+    get(`/products/search?q=${encodeURIComponent(q || '')}${lat != null && lng != null ? `&lat=${lat}&lng=${lng}` : ''}`, { auth: false }),
 
   // ---------- Manager ----------
   myStores: () => get('/stores/mine'),
@@ -126,7 +128,7 @@ export const api = {
   availableDeliveries: (lat, lng, radius) => get(`/deliveries/available?lat=${lat}&lng=${lng}${radius ? '&radius=' + radius : ''}`),
   myDeliveries: () => get('/deliveries/mine'),
   acceptDelivery: (orderId) => post(`/deliveries/accept/${orderId}`),
-  pickupDelivery: (orderId) => post(`/deliveries/${orderId}/pickup`),
+  pickupStore: (orderId, storeId) => post(`/deliveries/${orderId}/pickup/${storeId}`),
   completeDelivery: (orderId, code) => post(`/deliveries/${orderId}/complete`, { code }),
   sendLocation: (lat, lng) => post('/deliveries/location', { lat, lng }),
   setAvailability: (isAvailable) => patch('/deliveries/availability', { isAvailable }),

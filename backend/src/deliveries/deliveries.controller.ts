@@ -27,9 +27,9 @@ export class DeliveriesController {
     return this.deliveries.accept(userId, orderId)
   }
 
-  @Post(':orderId/pickup')
-  pickup(@CurrentUser('userId') userId: string, @Param('orderId') orderId: string) {
-    return this.deliveries.pickup(userId, orderId)
+  @Post(':orderId/pickup/:storeId')
+  pickup(@CurrentUser('userId') userId: string, @Param('orderId') orderId: string, @Param('storeId') storeId: string) {
+    return this.deliveries.pickupStore(userId, orderId, storeId)
   }
 
   @Post(':orderId/complete')

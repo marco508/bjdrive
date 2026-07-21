@@ -80,8 +80,10 @@ export default function ManagerOrders() {
               {o.destAddress && <div className="muted" style={{ fontSize: 13 }}>📍 {o.destAddress}</div>}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                <span className="muted" style={{ fontSize: 13 }}>Total</span>
-                <strong className="price-total" style={{ fontSize: 18 }}>{formatFCFA(o.total)}</strong>
+                <span className="muted" style={{ fontSize: 13 }}>Votre reversement</span>
+                <strong className="price-total" style={{ fontSize: 18 }}>
+                  {formatFCFA(o.part?.payoutAmount ?? (o.items || []).reduce((s, i) => s + i.price * i.qty, 0))}
+                </strong>
               </div>
             </div>
           )

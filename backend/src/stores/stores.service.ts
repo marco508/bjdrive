@@ -43,6 +43,12 @@ export class StoresService {
     return this.prisma.category.findMany({ orderBy: { order: 'asc' } })
   }
 
+  // Recherche d'un produit dans toutes les enseignes vérifiées (comparaison de prix).
+  searchProducts(term: string, lat?: number, lng?: number) {
+    if (!term || term.trim().length < 2) return Promise.resolve([])
+    return this.geo.searchProducts(term.trim(), lat, lng)
+  }
+
   // ---- Espace manager ----
   listMine(ownerId: string) {
     return this.prisma.store.findMany({

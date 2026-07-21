@@ -75,9 +75,10 @@ export default function ManagerDashboard() {
     (o) => !['DELIVERED', 'CANCELLED', 'PENDING_PAYMENT'].includes(o.status),
   )
   const todays = list.filter((o) => isToday(o.createdAt))
+  const partAmount = (o) => o.part?.payoutAmount ?? (o.items || []).reduce((s, i) => s + i.price * i.qty, 0)
   const revenue = todays
     .filter((o) => o.status === 'DELIVERED')
-    .reduce((s, o) => s + (o.total || 0), 0)
+    .reduce((s, o) => s + partAmount(o), 0)
   const recent = [...list]
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, 5)
@@ -120,7 +121,7 @@ export default function ManagerDashboard() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div><StatusBadge status={o.status} labels={STATUS_LABELS} icons={STATUS_ICON} /></div>
             </div>
-            <strong>{formatFCFA(o.total)}</strong>
+            <strong>{formatFCFA(partAmount(o))}</strong>
           </div>
         ))}
 

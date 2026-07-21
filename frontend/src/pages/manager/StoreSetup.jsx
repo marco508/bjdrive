@@ -4,7 +4,7 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Loader, ErrorBox } from '../../components/ui.jsx'
 import { STORE_STATUS_LABELS } from '../../services/constants.js'
-import { formatFCFA, getCurrentPosition, COTONOU } from '../../lib/geo.js'
+import { getCurrentPosition } from '../../lib/geo.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 
 const EMOJIS = ['🛒', '🏬', '🥫', '🏪', '🛍️', '💊', '🥖', '🧺']
@@ -23,7 +23,6 @@ export default function StoreSetup() {
     emoji: '🛒',
     color: '#0a7d3c',
     address: '',
-    deliveryFee: '',
     lat: null,
     lng: null,
   })
@@ -40,7 +39,6 @@ export default function StoreSetup() {
       emoji: existing.emoji || '🛒',
       color: existing.color || '#0a7d3c',
       address: existing.address || '',
-      deliveryFee: existing.deliveryFee ?? '',
       lat: existing.lat ?? null,
       lng: existing.lng ?? null,
     })
@@ -54,8 +52,7 @@ export default function StoreSetup() {
       const pos = await getCurrentPosition()
       setForm((f) => ({ ...f, lat: pos.lat, lng: pos.lng }))
     } catch {
-      setForm((f) => ({ ...f, lat: COTONOU.lat, lng: COTONOU.lng }))
-      showToast('Position GPS indisponible — Cotonou utilisé par défaut.')
+      showToast('Position GPS indisponible. Activez la localisation pour placer votre enseigne.')
     } finally {
       setLocating(false)
     }
@@ -77,7 +74,6 @@ export default function StoreSetup() {
       lat: form.lat,
       lng: form.lng,
     }
-    if (form.deliveryFee !== '' && form.deliveryFee != null) dto.deliveryFee = Number(form.deliveryFee)
     setSaving(true)
     try {
       if (existing) {
@@ -192,11 +188,6 @@ export default function StoreSetup() {
             <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Rue, quartier, ville" />
           </label>
 
-          <label className="field">
-            <span>Frais de livraison (FCFA, optionnel)</span>
-            <input type="number" min="0" value={form.deliveryFee} onChange={(e) => set('deliveryFee', e.target.value)} placeholder="Ex. 500" />
-          </label>
-
           <div className="field">
             <span>Position de l’enseigne</span>
             <button type="button" className="btn outline" onClick={locate} disabled={locating}>
@@ -206,7 +197,6 @@ export default function StoreSetup() {
               <>
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
                   {form.lat.toFixed(5)}, {form.lng.toFixed(5)}
-                  {form.deliveryFee !== '' && form.deliveryFee != null ? ` · Livraison ${formatFCFA(form.deliveryFee)}` : ''}
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <DeliveryMap origin={{ lat: form.lat, lng: form.lng }} />

@@ -28,11 +28,13 @@ export default function ClientOrders() {
           !error &&
           (data || []).map((o) => {
             const count = (o.items || []).reduce((s, i) => s + i.qty, 0)
+            const stores = o.stores || []
+            const title = stores.length > 1 ? `${stores.length} enseignes` : stores[0]?.store?.name || 'Commande'
             return (
               <div key={o.id} className="card store-card" onClick={() => nav(`/client/track/${o.id}`)}>
                 <div className="store-logo" style={{ background: 'var(--green)' }}>{STATUS_ICON[o.status]}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3>{o.store?.name}</h3>
+                  <h3>{title}</h3>
                   <div className="meta"><span>{count} articles · {formatFCFA(o.total)}</span></div>
                   <div style={{ marginTop: 6 }}>
                     <StatusBadge status={o.status} labels={STATUS_LABELS} icons={STATUS_ICON} />

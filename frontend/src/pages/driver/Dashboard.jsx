@@ -94,10 +94,10 @@ export default function DriverDashboard() {
     }
   }
 
-  async function pickup(orderId) {
+  async function pickup(orderId, storeId) {
     try {
-      await api.pickupDelivery(orderId)
-      showToast('Commande récupérée au magasin 🏪')
+      const r = await api.pickupStore(orderId, storeId)
+      showToast(r?.allPickedUp ? 'Tout récupéré — en route ! 🛵' : 'Retrait enregistré 🏪')
       await reloadAll()
     } catch (e) {
       showToast(e.message || 'Erreur lors du retrait.')
@@ -195,7 +195,7 @@ export default function DriverDashboard() {
                 key={d.id}
                 d={d}
                 pos={pos}
-                onPickup={() => pickup(d.order.id)}
+                onPickup={(storeId) => pickup(d.order.id, storeId)}
                 onComplete={(code) => complete(d.order.id, code)}
               />
             ))}
@@ -228,12 +228,15 @@ export default function DriverDashboard() {
             {(avState.data || []).map((a) => (
               <div key={a.id} className="card">
                 <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <strong>{a.store?.name}</strong>
+                  <strong>{a.stores?.length > 1 ? `${a.stores.length} enseignes` : a.stores?.[0]?.name}</strong>
                   <span className="badge yellow">Gain {formatFCFA(a.earnings)}</span>
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  {(a.stores || []).map((s) => s.name).join(' · ')}
                 </div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>📍 {a.destAddress}</div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-                  📦 {a.itemCount} articles · 🛣️ à {(a.distanceToStore / 1000).toFixed(1)} km du magasin
+                  📦 {a.itemCount} articles · 🛣️ à {(a.distanceToStore / 1000).toFixed(1)} km
                 </div>
                 <button
                   className="btn small"
@@ -261,57 +264,64 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const order = d.order
-  const store = order.store || {}
+  const stores = order.stores || []
   const dest = { lat: order.destLat, lng: order.destLng }
-  const itemsSummary = (order.items || [])
-    .map((i) => `${i.emoji || ''}${i.qty > 1 ? ` ${i.qty}×` : ''} ${i.name}`.trim())
-    .join(' · ')
+  const origin = order.originLat != null ? { lat: order.originLat, lng: order.originLng }
+    : stores[0]?.store ? { lat: stores[0].store.lat, lng: stores[0].store.lng } : null
 
   async function submit() {
     if (busy) return
     setBusy(true)
-    try {
-      await onComplete(code.trim())
-    } finally {
-      setBusy(false)
-    }
+    try { await onComplete(code.trim()) } finally { setBusy(false) }
   }
-
-  async function doPickup() {
+  async function doPickup(storeId) {
     if (busy) return
     setBusy(true)
-    try {
-      await onPickup()
-    } finally {
-      setBusy(false)
-    }
+    try { await onPickup(storeId) } finally { setBusy(false) }
   }
 
   return (
     <div className="card">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <strong>{store.name}</strong>
+        <strong>{stores.length > 1 ? `Tournée · ${stores.length} enseignes` : stores[0]?.store?.name}</strong>
         <span className="badge yellow">À encaisser {formatFCFA(order.total)}</span>
       </div>
       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>📍 {order.destAddress}</div>
       {order.destNote && (
         <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>📝 {order.destNote}</div>
       )}
-      {itemsSummary && (
-        <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>📦 {itemsSummary}</div>
-      )}
 
       {order.status === 'AWAITING_PICKUP' && (
-        <button className="btn" style={{ marginTop: 12 }} disabled={busy} onClick={doPickup}>
-          🏪 J&rsquo;ai récupéré la commande au magasin
-        </button>
+        <div style={{ marginTop: 12 }}>
+          <p className="muted" style={{ fontSize: 12, margin: '0 0 6px' }}>Récupérez dans chaque enseigne :</p>
+          {stores.map((os) => {
+            const items = (order.items || []).filter((i) => i.storeId === os.storeId)
+            const summary = items.map((i) => `${i.emoji || ''} ${i.qty}× ${i.name}`.trim()).join(' · ')
+            return (
+              <div key={os.storeId} style={{ borderBottom: '1px solid var(--line)', padding: '8px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ fontSize: 14 }}>{os.store?.emoji} {os.store?.name}</strong>
+                    <div className="muted" style={{ fontSize: 12 }}>{os.store?.address}</div>
+                  </div>
+                  {os.pickedUpAt ? (
+                    <span className="badge">✓ Récupéré</span>
+                  ) : (
+                    <button className="btn small" disabled={busy} onClick={() => doPickup(os.storeId)}>Récupéré</button>
+                  )}
+                </div>
+                {summary && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>📦 {summary}</div>}
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {order.status === 'IN_DELIVERY' && (
         <>
           <div style={{ marginTop: 12 }}>
             <DeliveryMap
-              origin={{ lat: store.lat, lng: store.lng }}
+              origin={origin}
               destination={dest}
               driver={pos}
               etaSeconds={pos ? estimateEta(pos, dest).seconds : null}

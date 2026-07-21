@@ -7,7 +7,7 @@ export class OrderItemInput {
 }
 
 export class CreateOrderDto {
-  @IsString() storeId: string
+  // Le panier peut contenir des produits de plusieurs enseignes (regroupées côté serveur).
   @IsArray() @ArrayNotEmpty() @ValidateNested({ each: true }) @Type(() => OrderItemInput)
   items: OrderItemInput[]
   @IsNumber() destLat: number

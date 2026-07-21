@@ -19,7 +19,6 @@ export class CreateStoreDto {
   @IsString() address: string
   @IsNumber() lat: number
   @IsNumber() lng: number
-  @IsOptional() @IsInt() @Min(0) deliveryFee?: number
 }
 
 export class UpdateStoreDto {
@@ -31,7 +30,6 @@ export class UpdateStoreDto {
   @IsOptional() @IsString() address?: string
   @IsOptional() @IsNumber() lat?: number
   @IsOptional() @IsNumber() lng?: number
-  @IsOptional() @IsInt() @Min(0) deliveryFee?: number
   @IsOptional() @IsBoolean() active?: boolean
 }
 

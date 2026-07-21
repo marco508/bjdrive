@@ -67,6 +67,7 @@ export class PrismaClient {
   product: Delegate
   order: Delegate
   orderItem: Delegate
+  orderStore: Delegate
   orderStatusHistory: Delegate
   delivery: Delegate
   driverProfile: Delegate

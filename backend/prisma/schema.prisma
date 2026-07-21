@@ -115,7 +115,6 @@ model Store {
   // Localisation sur la carte (lat/lng ; colonne géographique PostGIS ajoutée par apply-postgis)
   lat         Float
   lng         Float
-  deliveryFee Int? // surcharge éventuelle des frais de livraison de la boutique
   status      StoreStatus @default(PENDING)
 
   // Vérification
@@ -129,8 +128,8 @@ model Store {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  products Product[]
-  orders   Order[]
+  products    Product[]
+  orderStores OrderStore[]
 
   @@index([status])
   @@index([categoryId])
@@ -155,17 +154,16 @@ model Product {
 }
 
 // ------------------------------- Commandes ----------------------------------
+// Une commande peut porter sur PLUSIEURS enseignes (panier combiné).
 model Order {
   id       String      @id @default(cuid())
   client   User        @relation("OrderClient", fields: [clientId], references: [id])
   clientId String
-  store    Store       @relation(fields: [storeId], references: [id])
-  storeId  String
   status   OrderStatus @default(PENDING_PAYMENT)
 
   // Montants (FCFA) — commission ajoutée EN PLUS du total
-  subtotal    Int // produits → revient à l'enseigne
-  deliveryFee Int // → revient au livreur
+  subtotal    Int // produits → réparti entre les enseignes
+  deliveryFee Int // → revient au livreur (basé sur la distance de la tournée)
   commission  Int // 10% → revient à la plateforme
   total       Int // subtotal + deliveryFee + commission (payé par le client)
 
@@ -174,6 +172,9 @@ model Order {
   destLng     Float
   destAddress String?
   destNote    String?
+  // Départ de la tournée (enseigne la plus éloignée du client) — pour l'affichage carte
+  originLat Float?
+  originLng Float?
 
   // Code de réception (type Uber Eats) remis au livreur à la livraison
   receptionCode String
@@ -187,12 +188,12 @@ model Order {
   updatedAt     DateTime      @updatedAt
 
   items    OrderItem[]
+  stores   OrderStore[]
   history  OrderStatusHistory[]
   delivery Delivery?
   payment  Payment?
 
   @@index([status])
-  @@index([storeId])
   @@index([clientId])
 }
 
@@ -200,6 +201,8 @@ model OrderItem {
   id        String @id @default(cuid())
   order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId   String
+  storeId   String
+  storeName String
   productId String
   name      String
   emoji     String?
@@ -207,6 +210,22 @@ model OrderItem {
   qty       Int
 
   @@index([orderId])
+  @@index([storeId])
+}
+
+// Une ligne par enseigne concernée par la commande (retrait + reversement).
+model OrderStore {
+  id           String    @id @default(cuid())
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId      String
+  store        Store     @relation(fields: [storeId], references: [id])
+  storeId      String
+  subtotal     Int // total des produits de cette enseigne
+  payoutAmount Int // reversement à l'enseigne (= subtotal)
+  pickedUpAt   DateTime? // horodatage du retrait au magasin
+
+  @@unique([orderId, storeId])
+  @@index([storeId])
 }
 
 model OrderStatusHistory {

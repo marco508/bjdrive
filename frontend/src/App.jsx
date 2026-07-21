@@ -6,6 +6,7 @@ import Landing from './pages/Landing.jsx'
 import Auth from './pages/Auth.jsx'
 
 import ClientHome from './pages/client/Home.jsx'
+import Search from './pages/client/Search.jsx'
 import StorePage from './pages/client/StorePage.jsx'
 import Cart from './pages/client/Cart.jsx'
 import Checkout from './pages/client/Checkout.jsx'
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/client" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><ClientHome /></RequireRole>} />
         <Route path="/client/orders" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><ClientOrders /></RequireRole>} />
         <Route path="/client/account" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><Account /></RequireRole>} />
+        <Route path="/client/search" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><Search /></RequireRole>} />
         <Route path="/client/store/:id" element={<RequireRole role="CLIENT"><StorePage /></RequireRole>} />
         <Route path="/client/cart" element={<RequireRole role="CLIENT"><Cart /></RequireRole>} />
         <Route path="/client/checkout" element={<RequireRole role="CLIENT"><Checkout /></RequireRole>} />

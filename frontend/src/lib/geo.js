@@ -18,7 +18,7 @@ export function haversine(a, b) {
 }
 
 // ETA de secours (sans Directions API) : distance / vitesse moyenne d'un zémidjan en ville.
-// Vitesse par défaut ~22 km/h en tenant compte du trafic de Cotonou.
+// Vitesse par défaut ~22 km/h en tenant compte du trafic urbain.
 export function estimateEta(from, to, speedKmh = 22) {
   const meters = haversine(from, to)
   const speedMs = (speedKmh * 1000) / 3600
@@ -57,8 +57,9 @@ export function formatFCFA(amount) {
   return `${n.toLocaleString('fr-FR')} FCFA`
 }
 
-// Point central de Cotonou (fallback si la géoloc est refusée).
-export const COTONOU = { lat: 6.3703, lng: 2.3912 }
+// Centre approximatif du Bénin (fallback carte si la géoloc est indisponible).
+// L'application couvre tout le pays, pas uniquement Cotonou.
+export const BENIN_CENTER = { lat: 9.3, lng: 2.32 }
 
 // Demande la position GPS de l'utilisateur (promesse).
 export function getCurrentPosition(options = {}) {

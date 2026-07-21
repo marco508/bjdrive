@@ -45,7 +45,7 @@ export default function StorePage() {
         title={store.name}
         subtitle={store.address}
         back
-        right={store.deliveryFee != null ? <span className="pill">🚚 {formatFCFA(store.deliveryFee)}</span> : null}
+        right={store.category ? <span className="pill">{store.category.emoji} {store.category.name}</span> : null}
       />
       <div className="screen">
         {(store.products || []).length === 0 && (

@@ -8,7 +8,8 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
 
-  const [cart, setCart] = useState({ store: null, items: {} })
+  // Panier MULTI-ENSEIGNES : chaque article porte son enseigne.
+  const [cart, setCart] = useState({ items: {} })
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
 
@@ -56,7 +57,7 @@ export function AppProvider({ children }) {
   const logout = useCallback(() => {
     setToken(null)
     setUser(null)
-    setCart({ store: null, items: {} })
+    setCart({ items: {} })
   }, [])
 
   const refreshUser = useCallback(async () => {
@@ -67,25 +68,31 @@ export function AppProvider({ children }) {
     }
   }, [])
 
-  // ---------- Panier (une seule enseigne à la fois) ----------
+  // ---------- Panier multi-enseignes ----------
+  // store = { id, name, emoji, color, lat, lng, address }
   const addToCart = useCallback((store, product, delta = 1) => {
     setCart((prev) => {
-      let base = prev
-      if (prev.store && prev.store.id !== store.id && Object.keys(prev.items).length) base = { store, items: {} }
-      const current = base.items[product.id]?.qty || 0
-      const next = Math.max(0, Math.min(product.stock, current + delta))
-      const items = { ...base.items }
+      const current = prev.items[product.id]?.qty || 0
+      const next = Math.max(0, Math.min(product.stock ?? 9999, current + delta))
+      const items = { ...prev.items }
       if (next === 0) delete items[product.id]
-      else items[product.id] = { product, qty: next }
-      return { store: Object.keys(items).length ? store : null, items }
+      else items[product.id] = { product, qty: next, store }
+      return { items }
     })
   }, [])
 
-  const clearCart = useCallback(() => setCart({ store: null, items: {} }), [])
+  const clearCart = useCallback(() => setCart({ items: {} }), [])
 
   const cartItems = Object.values(cart.items)
   const cartCount = cartItems.reduce((s, it) => s + it.qty, 0)
   const cartSubtotal = cartItems.reduce((s, it) => s + it.product.price * it.qty, 0)
+  // Enseignes distinctes présentes dans le panier
+  const cartStores = Object.values(
+    cartItems.reduce((acc, it) => {
+      acc[it.store.id] = it.store
+      return acc
+    }, {}),
+  )
 
   const value = {
     user,
@@ -98,6 +105,7 @@ export function AppProvider({ children }) {
     cartItems,
     cartCount,
     cartSubtotal,
+    cartStores,
     addToCart,
     clearCart,
     toast,
