@@ -18,3 +18,12 @@ export class LoginDto {
 export class RefreshDto {
   @IsString() refreshToken: string
 }
+
+export class ForgotPasswordDto {
+  @IsEmail() email: string
+}
+
+export class ResetPasswordDto {
+  @IsString() token: string
+  @MinLength(6) password: string
+}

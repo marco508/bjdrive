@@ -5,6 +5,7 @@ import Onboarding from './components/Onboarding.jsx'
 
 import Landing from './pages/Landing.jsx'
 import Auth from './pages/Auth.jsx'
+import Reset from './pages/Reset.jsx'
 
 import ClientHome from './pages/client/Home.jsx'
 import Search from './pages/client/Search.jsx'
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/" element={authReady && user ? <Navigate to={homeFor(user.role)} replace /> : <Landing />} />
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/register" element={<Auth mode="register" />} />
+        <Route path="/reset" element={<Reset />} />
 
         {/* Client */}
         <Route path="/client" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><ClientHome /></RequireRole>} />

@@ -8,6 +8,7 @@ import { api } from '../../src/api'
 import { useApp } from '../../src/store'
 import ChatBox from '../../src/ChatBox'
 import OnboardingGate from '../../src/OnboardingGate'
+import { BioToggle } from '../../src/biolock'
 import { Badge, Btn, Card, Empty, ErrorBox, Field, Loader, RowBetween, SectionTitle } from '../../src/ui'
 import { C, STATUS_ICON, STATUS_LABELS, formatFCFA } from '../../src/theme'
 
@@ -58,6 +59,7 @@ export default function StaffDashboard() {
           {tab === 'products' && <ProductsTab store={store} reload={load} />}
         </>
       )}
+      <BioToggle />
       <Btn title="Se déconnecter" variant="ghost" onPress={async () => { await logout(); router.replace('/') }} />
     </ScrollView>
   )

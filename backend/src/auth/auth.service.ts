@@ -6,11 +6,17 @@ import { Role } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 import { createHash, randomBytes } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
-import { RegisterDto, LoginDto, RefreshDto } from './dto'
+import { MailService } from '../mail/mail.service'
+import { ForgotPasswordDto, RegisterDto, LoginDto, RefreshDto, ResetPasswordDto } from './dto'
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private jwt: JwtService, private config: ConfigService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+    private mail: MailService,
+  ) {}
 
   private hash(token: string) {
     return createHash('sha256').update(token).digest('hex')
@@ -91,6 +97,46 @@ export class AuthService {
       data: { revokedAt: new Date() },
     })
     return { ok: true }
+  }
+
+  // ---- Mot de passe oublié ----
+  // Réponse TOUJOURS identique (pas d'énumération d'e-mails). Jeton à usage
+  // unique, haché en base, valable 30 minutes, envoyé par e-mail.
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } })
+    if (user) {
+      // Invalide les demandes précédentes encore actives.
+      await this.prisma.passwordReset.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+      const token = randomBytes(32).toString('hex')
+      await this.prisma.passwordReset.create({
+        data: { userId: user.id, tokenHash: this.hash(token), expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
+      })
+      const base = this.config.get<string>('WEB_APP_URL') || 'http://localhost:8080'
+      this.mail.sendPasswordReset(user.email, user.name, `${base}/reset?token=${token}`).catch(() => {})
+    }
+    return { ok: true, message: 'Si un compte existe avec cet e-mail, un lien de réinitialisation vient de lui être envoyé.' }
+  }
+
+  // Nouveau mot de passe : jeton validé puis brûlé, toutes les sessions coupées.
+  async resetPassword(dto: ResetPasswordDto) {
+    const row = await this.prisma.passwordReset.findUnique({
+      where: { tokenHash: this.hash(dto.token) },
+      include: { user: true },
+    })
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      throw new BadRequestException('Lien invalide ou expiré — refaites une demande de réinitialisation.')
+    }
+    const passwordHash = await bcrypt.hash(dto.password, 10)
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+      this.prisma.passwordReset.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
+      // Sécurité : toute session existante est révoquée (si le compte était compromis).
+      this.prisma.refreshToken.updateMany({ where: { userId: row.userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ])
+    return this.issueTokens(row.user) // connecté directement avec le nouveau mot de passe
   }
 
   // Purge quotidienne des jetons expirés/révoqués depuis plus de 7 jours.

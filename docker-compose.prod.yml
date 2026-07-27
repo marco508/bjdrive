@@ -26,6 +26,7 @@ services:
     environment:
       NODE_ENV: production
       CORS_ORIGIN: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}"
+      WEB_APP_URL: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}"
     # Pas de port publié sur l'hôte : Traefik joint le conteneur via son réseau.
     ports: !override
       - "127.0.0.1:3007:3007"

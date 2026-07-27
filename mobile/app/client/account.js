@@ -3,6 +3,7 @@ import { Text, View, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { api } from '../../src/api'
 import { useApp } from '../../src/store'
+import { BioToggle } from '../../src/biolock'
 import { Btn, Card, RowBetween, SectionTitle } from '../../src/ui'
 import { C, formatFCFA } from '../../src/theme'
 
@@ -30,6 +31,8 @@ export default function Account() {
         <Text style={{ color: C.muted }}>{user?.email}</Text>
         {user?.phone ? <Text style={{ color: C.muted }}>{user.phone}</Text> : null}
       </Card>
+
+      <BioToggle />
 
       {stats && stats.totalOrders > 0 && (
         <>

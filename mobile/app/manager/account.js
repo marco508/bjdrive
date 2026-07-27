@@ -1,6 +1,7 @@
 import { ScrollView, Text } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useApp } from '../../src/store'
+import { BioToggle } from '../../src/biolock'
 import { Btn, Card } from '../../src/ui'
 import { C } from '../../src/theme'
 
@@ -20,6 +21,7 @@ export default function ManagerAccount() {
           depuis l'application web BjDrive. L'application mobile sert au suivi quotidien : commandes, préparation et stocks.
         </Text>
       </Card>
+      <BioToggle />
       <Btn title="Se déconnecter" variant="danger" onPress={async () => { await logout(); router.replace('/') }} />
     </ScrollView>
   )

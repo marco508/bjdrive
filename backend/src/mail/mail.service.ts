@@ -31,6 +31,38 @@ export class MailService {
     return `${Number(n || 0).toLocaleString('fr-FR')} FCFA`
   }
 
+  // Lien de réinitialisation de mot de passe (valable 30 minutes).
+  async sendPasswordReset(to: string, name: string, link: string) {
+    const html = `
+<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#12211a;">
+  <div style="background:#0a7d3c;color:#fff;border-radius:14px 14px 0 0;padding:20px 24px;">
+    <div style="font-size:22px;font-weight:800;">🛒🛵 BjDrive</div>
+    <div style="opacity:.9;font-size:13px;">Réinitialisation de votre mot de passe</div>
+  </div>
+  <div style="border:1px solid #e7ede9;border-top:none;border-radius:0 0 14px 14px;padding:24px;">
+    <p>Bonjour ${name},</p>
+    <p>Vous avez demandé à réinitialiser votre mot de passe BjDrive. Cliquez sur le bouton ci-dessous (valable <strong>30 minutes</strong>) :</p>
+    <p style="text-align:center;margin:22px 0;">
+      <a href="${link}" style="background:#0a7d3c;color:#fff;text-decoration:none;padding:14px 26px;border-radius:12px;font-weight:700;display:inline-block;">
+        Choisir un nouveau mot de passe
+      </a>
+    </p>
+    <p style="color:#6b7c73;font-size:13px;">Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail — votre mot de passe restera inchangé.</p>
+  </div>
+</div>`
+    if (!this.transporter) {
+      this.logger.log(`Réinitialisation (SMTP absent, non envoyée) → ${to} : ${link}`)
+      return
+    }
+    await this.transporter.sendMail({
+      from: this.config.get('SMTP_FROM') || 'BjDrive <no-reply@bjdrive.bj>',
+      to,
+      subject: 'Réinitialisez votre mot de passe BjDrive',
+      html,
+    })
+    this.logger.log(`E-mail de réinitialisation envoyé à ${to}`)
+  }
+
   // Facture nominative : nom du client, enseigne(s), articles, totaux.
   // La commission n'apparaît pas en ligne séparée : elle est incluse dans
   // « Livraison & service » (détail disponible dans l'application).

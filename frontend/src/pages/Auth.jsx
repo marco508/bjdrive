@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
+import { api } from '../services/api.js'
 
 const ROLE_MAP = {
   client: { role: 'CLIENT', ic: '🛒', label: 'Client', canRegister: true },
@@ -23,6 +24,22 @@ export default function Auth({ mode }) {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [forgot, setForgot] = useState(false)
+  const [sent, setSent] = useState(false)
+
+  async function submitForgot(e) {
+    e.preventDefault()
+    setErr('')
+    setBusy(true)
+    try {
+      await api.forgotPassword(email)
+      setSent(true)
+    } catch (e2) {
+      setErr(e2.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -51,6 +68,33 @@ export default function Auth({ mode }) {
         <p className="muted" style={{ margin: 0 }}>{info.label}</p>
       </div>
 
+      {forgot ? (
+        <div className="card">
+          {sent ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 38 }}>📬</div>
+              <p style={{ fontSize: 14 }}>
+                Si un compte existe avec <strong>{email}</strong>, un lien de réinitialisation vient de lui être envoyé
+                (valable 30 minutes). Pensez à vérifier vos spams.
+              </p>
+              <button className="btn ghost small" onClick={() => { setForgot(false); setSent(false) }}>‹ Retour à la connexion</button>
+            </div>
+          ) : (
+            <form onSubmit={submitForgot}>
+              <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
+                Saisissez l'e-mail de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.
+              </p>
+              <label className="field">
+                <span>E-mail</span>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.bj" required />
+              </label>
+              {err && <p style={{ color: 'var(--red)', fontSize: 13, margin: '4px 0 12px' }}>{err}</p>}
+              <button className="btn" disabled={busy}>{busy ? '…' : 'Envoyer le lien'}</button>
+              <button type="button" className="btn ghost small" style={{ marginTop: 10 }} onClick={() => setForgot(false)}>‹ Retour</button>
+            </form>
+          )}
+        </div>
+      ) : (
       <div className="card">
         <form onSubmit={submit}>
           {isRegister && (
@@ -75,8 +119,17 @@ export default function Auth({ mode }) {
           </label>
           {err && <p style={{ color: 'var(--red)', fontSize: 13, margin: '4px 0 12px' }}>{err}</p>}
           <button className="btn" disabled={busy}>{busy ? '…' : isRegister ? 'Créer mon compte' : 'Se connecter'}</button>
+          {!isRegister && (
+            <p style={{ textAlign: 'center', margin: '12px 0 0' }}>
+              <button type="button" onClick={() => { setForgot(true); setErr('') }}
+                style={{ border: 'none', background: 'none', color: 'var(--green-dark)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>
+                Mot de passe oublié ?
+              </button>
+            </p>
+          )}
         </form>
       </div>
+      )}
 
       {info.canRegister && (
         <p style={{ textAlign: 'center', fontSize: 14 }}>

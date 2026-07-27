@@ -22,7 +22,8 @@
     "plugins": [
       "expo-router",
       "expo-location",
-      ["expo-camera", { "cameraPermission": "La caméra sert à scanner les codes-barres des produits." }]
+      ["expo-camera", { "cameraPermission": "La caméra sert à scanner les codes-barres des produits." }],
+      ["expo-local-authentication", { "faceIDPermission": "Face ID sert à déverrouiller votre compte BjDrive." }]
     ],
     "extra": {
       "apiUrl": "https://bjdrive.dkpsolution.tech/api",

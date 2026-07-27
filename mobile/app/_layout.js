@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { AppProvider } from '../src/store'
+import { BioGate } from '../src/biolock'
 import { C } from '../src/theme'
 
 export default function RootLayout() {
@@ -27,7 +28,10 @@ export default function RootLayout() {
         <Stack.Screen name="cart" options={{ title: 'Mon panier' }} />
         <Stack.Screen name="checkout" options={{ title: 'Livraison' }} />
         <Stack.Screen name="track/[id]" options={{ title: 'Suivi de commande' }} />
+        <Stack.Screen name="forgot" options={{ title: 'Mot de passe oublié' }} />
       </Stack>
+      {/* Verrou biométrique par-dessus toute l'app (si activé dans le compte) */}
+      <BioGate />
     </AppProvider>
   )
 }

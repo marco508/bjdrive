@@ -41,6 +41,11 @@ export default function Login() {
         <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
         <Btn title={busy ? 'Connexion…' : 'Se connecter'} onPress={submit} disabled={busy} />
       </Card>
+      <Pressable onPress={() => router.push('/forgot')}>
+        <Text style={{ textAlign: 'center', color: C.greenDark, fontSize: 13, textDecorationLine: 'underline', marginBottom: 14 }}>
+          Mot de passe oublié ?
+        </Text>
+      </Pressable>
       {role !== 'SUPERADMIN' && (
         <Pressable onPress={() => router.push({ pathname: '/register', params: { role } })}>
           <Text style={{ textAlign: 'center', color: C.greenDark, fontWeight: '600' }}>Pas encore de compte ? Créez-en un</Text>

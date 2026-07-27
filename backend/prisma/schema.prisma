@@ -104,6 +104,7 @@ model User {
   paymentAccounts PaymentAccount[]
   verifications   Store[]          @relation("StoreVerifier")
   refreshTokens     RefreshToken[]
+  passwordResets    PasswordReset[]
   pushSubscriptions PushSubscription[]
   payouts           Payout[]         @relation("PayoutBeneficiary")
   reviews           Review[]         @relation("ReviewAuthor")
@@ -122,6 +123,19 @@ model RefreshToken {
   tokenHash String    @unique // sha256 du jeton — le jeton en clair n'est jamais stocké
   expiresAt DateTime
   revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Réinitialisation de mot de passe (lien envoyé par e-mail, usage unique, 30 min).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime  @default(now())
 
   @@index([userId])

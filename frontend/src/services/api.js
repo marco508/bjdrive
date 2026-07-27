@@ -137,6 +137,8 @@ export const api = {
   // ---------- Auth ----------
   register: (dto) => post('/auth/register', dto, { auth: false }),
   login: (dto) => post('/auth/login', dto, { auth: false }),
+  forgotPassword: (email) => post('/auth/forgot', { email }, { auth: false }),
+  resetPassword: (token, password) => post('/auth/reset', { token, password }, { auth: false }),
   logoutServer: () => (refreshToken ? post('/auth/logout', { refreshToken }, { auth: false }).catch(() => {}) : Promise.resolve()),
 
   // ---------- Utilisateur ----------
