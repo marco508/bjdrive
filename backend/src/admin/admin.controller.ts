@@ -50,6 +50,11 @@ export class AdminController {
   }
 
   // -------- Commandes --------
+  @Get('orders')
+  orders(@Query('status') status?: string, @Query('take') take?: string) {
+    return this.admin.listOrders(status as any, take ? Number(take) : undefined)
+  }
+
   @Post('orders/:orderId/reset-code')
   resetCode(@Param('orderId') orderId: string) {
     return this.admin.resetCodeAttempts(orderId)

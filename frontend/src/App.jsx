@@ -23,6 +23,7 @@ import StoreSetup from './pages/manager/StoreSetup.jsx'
 import DriverDashboard from './pages/driver/Dashboard.jsx'
 
 import AdminOverview from './pages/admin/Overview.jsx'
+import AdminOrders from './pages/admin/Orders.jsx'
 import AdminStores from './pages/admin/Stores.jsx'
 import AdminDrivers from './pages/admin/Drivers.jsx'
 import AdminFinance from './pages/admin/Finance.jsx'
@@ -81,6 +82,7 @@ export default function App() {
 
         {/* Super-admin */}
         <Route path="/admin" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminOverview /></RequireRole>} />
+        <Route path="/admin/orders" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminOrders /></RequireRole>} />
         <Route path="/admin/stores" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminStores /></RequireRole>} />
         <Route path="/admin/drivers" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminDrivers /></RequireRole>} />
         <Route path="/admin/finance" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminFinance /></RequireRole>} />

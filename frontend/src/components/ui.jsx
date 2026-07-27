@@ -53,6 +53,7 @@ export const AdminTabs = () => (
   <Tabs
     tabs={[
       { to: '/admin', ic: '📊', label: 'Vue', end: true },
+      { to: '/admin/orders', ic: '🧾', label: 'Commandes' },
       { to: '/admin/stores', ic: '✅', label: 'Enseignes' },
       { to: '/admin/drivers', ic: '🛵', label: 'Livreurs' },
       { to: '/admin/finance', ic: '💸', label: 'Finances' },

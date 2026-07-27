@@ -237,6 +237,7 @@ export const api = {
   adminBalances: () => get('/admin/balances'),
   adminPayouts: (userId) => get(`/admin/payouts${userId ? '?userId=' + userId : ''}`),
   adminCreatePayout: (dto) => post('/admin/payouts', dto),
+  adminOrders: (status) => get(`/admin/orders${status ? '?status=' + status : ''}`),
   adminResetCode: (orderId) => post(`/admin/orders/${orderId}/reset-code`),
   adminConfig: () => get('/admin/config'),
   adminUpdateConfig: (dto) => patch('/admin/config', dto),

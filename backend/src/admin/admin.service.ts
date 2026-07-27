@@ -98,6 +98,21 @@ export class AdminService {
     return { ok: true }
   }
 
+  // Liste des commandes (supervision) : filtrable par statut.
+  listOrders(status?: OrderStatus, take = 100) {
+    return this.prisma.order.findMany({
+      where: status ? { status } : {},
+      include: {
+        client: { select: { id: true, name: true, email: true, phone: true } },
+        delivery: { include: { driver: { select: { id: true, name: true, phone: true } } } },
+        stores: { include: { store: { select: { id: true, name: true, emoji: true } } } },
+        payment: { select: { provider: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(take, 200),
+    })
+  }
+
   // -------- Remboursements --------
   listRefunds() {
     return this.prisma.order.findMany({
@@ -243,9 +258,15 @@ export class AdminService {
     return { ok: true }
   }
 
-  // -------- Vue d'ensemble (KPIs) --------
+  // -------- Vue d'ensemble (KPIs + signaux d'action contextuels) --------
   async overview() {
-    const [stores, pending, users, drivers, pendingDrivers, orders, delivered, payments, refundsPending] = await Promise.all([
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const inProgress: OrderStatus[] = [OrderStatus.AWAITING_DRIVER, OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY]
+    const [
+      stores, pending, users, drivers, pendingDrivers, orders, delivered, payments, refundsPending,
+      ordersInProgress, blockedCodes, todayOrders, todayPayments,
+    ] = await Promise.all([
       this.prisma.store.count({ where: { status: StoreStatus.VERIFIED } }),
       this.prisma.store.count({ where: { status: StoreStatus.PENDING } }),
       this.prisma.user.count(),
@@ -258,6 +279,14 @@ export class AdminService {
         _sum: { amount: true, platformAmount: true, storeAmount: true, driverAmount: true },
       }),
       this.prisma.order.count({ where: { paymentStatus: PaymentStatus.REFUND_PENDING } }),
+      this.prisma.order.count({ where: { status: { in: inProgress } } }),
+      // Codes de réception bloqués après 5 essais → intervention admin
+      this.prisma.order.count({ where: { codeAttempts: { gte: 5 }, status: { not: OrderStatus.DELIVERED } } }),
+      this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
+      this.prisma.payment.aggregate({
+        where: { status: PaymentStatus.PAID, updatedAt: { gte: startOfToday } },
+        _sum: { amount: true, platformAmount: true },
+      }),
     ])
     return {
       verifiedStores: stores,
@@ -268,6 +297,11 @@ export class AdminService {
       orders,
       deliveredOrders: delivered,
       refundsPending,
+      ordersInProgress,
+      blockedCodes,
+      todayOrders,
+      todayVolume: todayPayments._sum.amount || 0,
+      todayRevenue: todayPayments._sum.platformAmount || 0,
       grossVolume: payments._sum.amount || 0,
       platformRevenue: payments._sum.platformAmount || 0, // commission 10% encaissée
       storesPayout: payments._sum.storeAmount || 0,

@@ -21,6 +21,39 @@ export default function AdminOverview() {
 
         {!loading && !error && data && (
           <>
+            {/* Aujourd'hui */}
+            <p className="section-title" style={{ marginTop: 0 }}>Aujourd&rsquo;hui</p>
+            <div className="kpi-grid">
+              <div className="kpi">
+                <div className="n">{data.todayOrders ?? 0}</div>
+                <div className="l">Commandes du jour</div>
+              </div>
+              <div className="kpi">
+                <div className="n">{data.ordersInProgress ?? 0}</div>
+                <div className="l">En cours</div>
+              </div>
+              <div className="kpi">
+                <div className="n">{formatFCFA(data.todayVolume ?? 0)}</div>
+                <div className="l">Volume encaissé</div>
+              </div>
+              <div className="kpi" style={{ background: '#e6f4ea', color: 'var(--green-dark)' }}>
+                <div className="n" style={{ color: 'var(--green)' }}>{formatFCFA(data.todayRevenue ?? 0)}</div>
+                <div className="l">Commission du jour</div>
+              </div>
+            </div>
+
+            {/* Actions qui attendent l'admin */}
+            {data.blockedCodes > 0 && (
+              <div className="card" style={{ background: '#ffe3e3' }}>
+                <p className="section-title" style={{ marginTop: 0 }}>🔒 Codes de réception bloqués</p>
+                <p style={{ margin: '0 0 12px', fontSize: 14 }}>
+                  {data.blockedCodes} commande(s) bloquée(s) après 5 tentatives de code — à vérifier avec le client.
+                </p>
+                <button className="btn" onClick={() => nav('/admin/orders')}>Voir les commandes</button>
+              </div>
+            )}
+
+            <p className="section-title">Plateforme</p>
             <div className="kpi-grid">
               <div className="kpi">
                 <div className="n">{data.verifiedStores ?? 0}</div>

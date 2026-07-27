@@ -38,18 +38,22 @@ async function main() {
   }
   console.log(`🏷️  ${CATEGORIES.length} catégories.`)
 
-  // Super-admin (propriétaire de l'application)
+  // Super-admin (propriétaire de l'application).
+  // Le compte est SYNCHRONISÉ avec SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD à
+  // chaque démarrage : pour changer le mot de passe, modifiez le .env et
+  // redémarrez. Les identifiants ne sont jamais écrits dans le code ni les logs.
   const email = process.env.SUPERADMIN_EMAIL || 'admin@bjdrive.bj'
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(process.env.SUPERADMIN_PASSWORD || 'changez-moi', 10)
-    await prisma.user.create({
-      data: { email, passwordHash, role: Role.SUPERADMIN, name: process.env.SUPERADMIN_NAME || 'Super Admin' },
-    })
-    console.log(`👑 Super-admin créé : ${email}`)
-  } else {
-    console.log(`👑 Super-admin déjà présent : ${email}`)
+  const password = process.env.SUPERADMIN_PASSWORD || 'changez-moi'
+  if (process.env.NODE_ENV === 'production' && password === 'changez-moi') {
+    console.warn('⚠️  SUPERADMIN_PASSWORD par défaut en production — définissez un mot de passe fort dans le .env !')
   }
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.upsert({
+    where: { email },
+    update: { passwordHash, role: Role.SUPERADMIN },
+    create: { email, passwordHash, role: Role.SUPERADMIN, name: process.env.SUPERADMIN_NAME || 'Super Admin' },
+  })
+  console.log('👑 Super-admin synchronisé depuis les variables d’environnement.')
 
   console.log('✅ Seed terminé (données de référence uniquement — aucune donnée fictive).')
 }
