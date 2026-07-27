@@ -15,15 +15,24 @@ export function TopBar({ title, subtitle, back, right }) {
   )
 }
 
+// Barre d'onglets en mobile, sidebar de navigation en desktop (voir index.css).
 function Tabs({ tabs }) {
   return (
     <nav className="tabbar">
+      <div className="brand">
+        <span className="logo">🛒🛵</span>
+        <b>BjDrive</b>
+      </div>
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="ic">{t.ic}</span>
           {t.label}
         </NavLink>
       ))}
+      <div className="side-foot">
+        Marketplace de livraison au Bénin
+        <br />🇧🇯 Enseignes vérifiées · paiement sécurisé
+      </div>
     </nav>
   )
 }

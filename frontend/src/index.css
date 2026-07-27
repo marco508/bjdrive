@@ -1,6 +1,7 @@
 :root {
   --green: #0a7d3c;
   --green-dark: #075c2c;
+  --green-deep: #05421f;
   --green-soft: #e6f4ec;
   --yellow: #ffce00;
   --red: #e8112d;
@@ -10,9 +11,12 @@
   --bg: #f6f8f7;
   --card: #ffffff;
   --shadow: 0 6px 20px rgba(12, 40, 25, 0.08);
+  --shadow-soft: 0 2px 10px rgba(12, 40, 25, 0.06);
   --radius: 16px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --sidebar-w: 252px;
+  --content-w: 1120px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -27,7 +31,9 @@ body {
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
 
-/* Cadre mobile centré (aperçu desktop) */
+/* ============================================================
+   COQUILLE — mobile d'abord (PWA), grille avec sidebar en desktop
+   ============================================================ */
 .app-shell {
   max-width: 460px;
   margin: 0 auto;
@@ -41,6 +47,7 @@ button { font-family: inherit; }
 
 .screen {
   flex: 1;
+  width: 100%;
   padding: calc(14px + var(--safe-top)) 16px 96px;
   animation: fade 0.25s ease;
 }
@@ -63,9 +70,9 @@ button { font-family: inherit; }
 .topbar .sub { font-size: 12px; opacity: .85; margin: 0; }
 .topbar .back { background: rgba(255,255,255,.18); border: none; color: #fff; width: 34px; height: 34px; border-radius: 10px; font-size: 18px; cursor: pointer; }
 .topbar .spacer { flex: 1; }
-.topbar .pill { background: rgba(255,255,255,.16); padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.topbar .pill { background: rgba(255,255,255,.16); border: none; color: inherit; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
-/* Bottom nav */
+/* Navigation (barre d'onglets mobile → sidebar desktop) */
 .tabbar {
   position: sticky;
   bottom: 0;
@@ -85,22 +92,26 @@ button { font-family: inherit; }
   color: var(--muted);
   padding: 4px 0;
   font-weight: 600;
+  border-radius: 10px;
 }
 .tabbar a.active { color: var(--green); }
 .tabbar .ic { font-size: 20px; }
+.tabbar .brand, .tabbar .side-foot { display: none; }
 
 /* Cards */
 .card {
   background: var(--card);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--line);
   padding: 14px;
   margin-bottom: 12px;
 }
 .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 18px 2px 8px; font-weight: 700; }
 
 /* Store cards */
-.store-card { display: flex; gap: 12px; align-items: center; cursor: pointer; }
+.store-card { display: flex; gap: 12px; align-items: center; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+.store-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .store-logo { width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; color: #fff; flex-shrink: 0; }
 .store-card h3 { margin: 0 0 2px; font-size: 16px; }
 .store-card .meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
@@ -108,6 +119,10 @@ button { font-family: inherit; }
 .badge.gray { background: #eef1f0; color: var(--muted); }
 .badge.red { background: #fdeaec; color: var(--red); }
 .badge.yellow { background: #fff7d6; color: #8a6d00; }
+
+/* Grille de cartes (enseignes, listes admin) : 1 colonne mobile, fluide desktop */
+.grid-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.grid-cards > .card { margin-bottom: 0; }
 
 /* Product row */
 .product {
@@ -133,10 +148,11 @@ button { font-family: inherit; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 14px; border-radius: 14px; border: none;
   background: var(--green); color: #fff; font-size: 15px; font-weight: 700;
-  cursor: pointer; transition: transform .05s ease, background .2s;
+  cursor: pointer; transition: transform .05s ease, background .2s, box-shadow .2s;
 }
+.btn:hover { box-shadow: 0 4px 14px rgba(10,125,60,.25); }
 .btn:active { transform: scale(.99); }
-.btn:disabled { background: #b7c9bf; cursor: not-allowed; }
+.btn:disabled { background: #b7c9bf; cursor: not-allowed; box-shadow: none; }
 .btn.outline { background: #fff; color: var(--green-dark); border: 1.5px solid var(--green); }
 .btn.ghost { background: var(--green-soft); color: var(--green-dark); }
 .btn.danger { background: var(--red); }
@@ -195,7 +211,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); bor
 /* Fallback SVG map */
 .fallback-map { width: 100%; height: 100%; display: block; background: linear-gradient(180deg,#e9f1ec,#dfe9e3); }
 
-/* Landing / role picker */
+/* ============================================================
+   LANDING — plein écran, deux colonnes en desktop
+   ============================================================ */
 .hero {
   min-height: 100%;
   display: flex; flex-direction: column; justify-content: space-between;
@@ -205,12 +223,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); bor
 }
 .hero .logo { font-size: 44px; }
 .hero h1 { font-size: 30px; margin: 14px 0 6px; }
-.hero p.tag { opacity: .9; font-size: 15px; margin: 0; }
+.hero p.tag { opacity: .9; font-size: 15px; margin: 0; max-width: 460px; line-height: 1.5; }
+.hero .hero-points { display: none; }
 .role-btn {
   display: flex; align-items: center; gap: 14px; width: 100%;
   background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
   color: #fff; padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer; text-align: left;
+  transition: background .15s ease, transform .12s ease;
 }
+.role-btn:hover { background: rgba(255,255,255,.2); transform: translateY(-2px); }
 .role-btn .ic { font-size: 26px; }
 .role-btn h3 { margin: 0; font-size: 16px; }
 .role-btn p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
@@ -232,10 +253,144 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); bor
 }
 .banner { background: var(--yellow); color: #4a3b00; font-size: 12px; padding: 8px 16px; text-align: center; font-weight: 600; }
 .list-reset { list-style: none; padding: 0; margin: 0; }
-.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.kpi { background: var(--card); border-radius: 14px; padding: 14px; box-shadow: var(--shadow); }
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.kpi { background: var(--card); border-radius: 14px; padding: 14px; box-shadow: var(--shadow-soft); border: 1px solid var(--line); }
 .kpi .n { font-size: 24px; font-weight: 800; color: var(--green-dark); }
 .kpi .l { font-size: 12px; color: var(--muted); }
 .divider { height: 1px; background: var(--line); margin: 14px 0; }
 .avatar-drv { width: 46px; height: 46px; border-radius: 50%; background: var(--yellow); display: grid; place-items: center; font-size: 22px; }
 .chip { display:inline-flex; align-items:center; gap:6px; background:var(--green-soft); color:var(--green-dark); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+
+/* ============================================================
+   DESKTOP (≥ 900px) — sidebar + contenu centré, vraie densité
+   ============================================================ */
+@media (min-width: 900px) {
+  body { background: #eef2f0; }
+
+  /* Coquille : grille sidebar / contenu. Sans nav (auth, landing, pages
+     plein écran), la colonne sidebar disparaît automatiquement. */
+  .app-shell {
+    max-width: none;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    box-shadow: none;
+    background: var(--bg);
+  }
+  .app-shell:not(:has(> .tabbar)) { grid-template-columns: minmax(0, 1fr); }
+  .app-shell > .topbar { grid-column: -2; grid-row: 1; }
+  .app-shell > .screen { grid-column: -2; grid-row: 2; }
+  .app-shell > .footer-bar { grid-column: -2; grid-row: 3; }
+  .app-shell > .hero { grid-column: 1 / -1; grid-row: 1 / -1; }
+
+  /* Sidebar de navigation */
+  .app-shell > .tabbar {
+    grid-column: 1; grid-row: 1 / -1;
+    position: sticky; top: 0; bottom: auto;
+    height: 100vh;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 20px 14px;
+    background: linear-gradient(180deg, var(--green-deep), var(--green-dark));
+    border-top: none;
+    border-right: 1px solid rgba(255,255,255,.06);
+  }
+  .tabbar .brand {
+    display: flex; align-items: center; gap: 10px;
+    color: #fff; font-size: 17px; padding: 6px 12px 22px;
+    letter-spacing: .3px;
+  }
+  .tabbar .brand .logo { font-size: 24px; }
+  .tabbar a {
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    font-size: 14px;
+    color: rgba(255,255,255,.72);
+    padding: 11px 12px;
+    border-radius: 11px;
+  }
+  .tabbar a:hover { background: rgba(255,255,255,.08); color: #fff; }
+  .tabbar a.active { background: rgba(255,255,255,.14); color: #fff; }
+  .tabbar .ic { font-size: 18px; }
+  .tabbar .side-foot {
+    display: block; margin-top: auto; padding: 12px;
+    color: rgba(255,255,255,.45); font-size: 11px; line-height: 1.5;
+  }
+
+  /* En-tête clair, aligné sur la largeur de contenu */
+  .topbar {
+    background: var(--card);
+    color: var(--ink);
+    box-shadow: none;
+    border-bottom: 1px solid var(--line);
+    padding: 18px clamp(24px, 4vw, 48px);
+  }
+  .topbar h1 { font-size: 22px; }
+  .topbar .sub { color: var(--muted); opacity: 1; font-size: 13px; }
+  .topbar .back { background: var(--green-soft); color: var(--green-dark); }
+  .topbar .pill { background: var(--green-soft); color: var(--green-dark); }
+
+  /* Contenu : centré, large, espaces généreux */
+  .screen {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 28px clamp(24px, 4vw, 48px) 64px;
+  }
+  .section-title { margin-top: 26px; }
+  .card { padding: 18px; }
+
+  /* Grilles multi-colonnes */
+  .grid-cards { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi { padding: 18px; }
+  .kpi .n { font-size: 28px; }
+
+  /* Rayon produits : deux colonnes dans la carte */
+  .card:has(> .product) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 40px;
+    padding: 6px 22px;
+  }
+
+  /* Barres d'action : statiques et alignées au contenu */
+  .footer-bar {
+    position: static;
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
+    padding: 16px 0 0;
+  }
+  .app-shell > .footer-bar { padding: 0 clamp(24px, 4vw, 48px) 40px; }
+  .footer-bar .btn { max-width: 420px; margin: 0 auto; display: flex; }
+  .cart-fab { left: auto; right: 40px; transform: none; width: 380px; }
+  .toast { bottom: 32px; }
+
+  /* Cartes / suivi plus immersifs */
+  .map-wrap.tall { height: 52vh; }
+
+  /* Landing : deux colonnes, points de réassurance */
+  .hero {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(40px, 7vw, 110px);
+    padding: 60px;
+  }
+  .hero > div:first-child { max-width: 520px; }
+  .hero .logo { font-size: 64px; }
+  .hero h1 { font-size: 52px; margin: 18px 0 12px; }
+  .hero p.tag { font-size: 18px; }
+  .hero .hero-points { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; font-size: 14px; opacity: .92; }
+  .hero > div:last-child { width: 400px; flex-shrink: 0; }
+  .role-btn { padding: 18px; }
+}
+
+/* Très grands écrans : rayons produits sur 3 colonnes */
+@media (min-width: 1400px) {
+  .card:has(> .product) { grid-template-columns: 1fr 1fr 1fr; }
+}

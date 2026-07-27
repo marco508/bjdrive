@@ -17,6 +17,12 @@ export default function Landing() {
         <div className="logo">🛒🛵</div>
         <h1>BjDrive</h1>
         <p className="tag">Commandez auprès d'enseignes vérifiées au Bénin et faites-vous livrer — suivi du livreur en temps réel.</p>
+        <div className="hero-points">
+          <span>✅ Enseignes et livreurs vérifiés par nos équipes</span>
+          <span>📍 Suivi GPS du livreur et heure d'arrivée estimée</span>
+          <span>💳 Mobile Money, carte bancaire ou espèces à la livraison</span>
+          <span>🔐 Code de réception sécurisé à la remise</span>
+        </div>
       </div>
 
       <div>

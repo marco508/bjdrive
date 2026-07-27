@@ -69,6 +69,7 @@ export default function ClientHome() {
         {!stores.loading && list.length === 0 && (
           <Empty icon="🏪" title="Aucune enseigne" text="Aucune enseigne vérifiée disponible pour l'instant." />
         )}
+        <div className="grid-cards">
         {list.map((s) => (
           <div key={s.id} className="card store-card" onClick={() => nav(`/client/store/${s.id}`)}>
             <div className="store-logo" style={{ background: s.color || 'var(--green)' }}>{s.emoji || '🛒'}</div>
@@ -84,6 +85,7 @@ export default function ClientHome() {
             <span style={{ fontSize: 22, color: 'var(--muted)' }}>›</span>
           </div>
         ))}
+        </div>
       </div>
     </>
   )
