@@ -39,6 +39,9 @@ export class AuthService {
     if (dto.role === Role.SUPERADMIN) {
       throw new BadRequestException('Le compte super-admin ne peut pas être créé publiquement.')
     }
+    if (dto.role === Role.STAFF) {
+      throw new BadRequestException("Les comptes employés sont créés par le gérant de l'enseigne.")
+    }
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } })
     if (existing) throw new BadRequestException('Un compte existe déjà avec cet e-mail.')
 

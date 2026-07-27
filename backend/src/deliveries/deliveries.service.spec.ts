@@ -35,7 +35,8 @@ function makeService(overrides: any = {}) {
     sendToUsers: jest.fn(),
     notifyNearbyDrivers: jest.fn(),
   }
-  return { svc: new DeliveriesService(prisma, geo, settings, realtime, notifications), prisma, notifications }
+  const mail: any = { sendInvoice: jest.fn() }
+  return { svc: new DeliveriesService(prisma, geo, settings, realtime, notifications, mail), prisma, notifications, mail }
 }
 
 const BASE_ORDER = {

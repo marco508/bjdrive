@@ -12,7 +12,7 @@ import {
   ValidateNested,
   IsDateString,
 } from 'class-validator'
-import { PaymentMethod } from '@prisma/client'
+import { Fulfillment, PaymentMethod } from '@prisma/client'
 
 export class OrderItemInput {
   @IsString() productId: string
@@ -23,12 +23,15 @@ export class CreateOrderDto {
   // Le panier peut contenir des produits de plusieurs enseignes (regroupées côté serveur).
   @IsArray() @ArrayNotEmpty() @ValidateNested({ each: true }) @Type(() => OrderItemInput)
   items: OrderItemInput[]
-  @IsNumber() destLat: number
-  @IsNumber() destLng: number
+  // Position requise pour une LIVRAISON ; ignorée pour un RETRAIT (coords de l'enseigne).
+  @IsOptional() @IsNumber() destLat?: number
+  @IsOptional() @IsNumber() destLng?: number
   @IsOptional() @IsString() destAddress?: string
   @IsOptional() @IsString() destNote?: string
-  // KKIAPAY (défaut) ou CASH (paiement à la livraison, si autorisé par la config)
+  // KKIAPAY (défaut) ou CASH (paiement à la livraison/au retrait, si autorisé)
   @IsOptional() @IsEnum(PaymentMethod) paymentMethod?: PaymentMethod
+  // DELIVERY (défaut) ou PICKUP (le client passe chercher — une seule enseigne)
+  @IsOptional() @IsEnum(Fulfillment) fulfillment?: Fulfillment
 }
 
 export class ScheduleDto {

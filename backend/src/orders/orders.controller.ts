@@ -25,9 +25,17 @@ export class OrdersController {
     return this.orders.listMine(userId)
   }
 
+  // Habitudes d'achat du client (dashboard personnel).
+  @Get('stats/mine')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CLIENT)
+  statsMine(@CurrentUser('userId') userId: string) {
+    return this.orders.statsMine(userId)
+  }
+
   @Get('store/:storeId')
   @UseGuards(RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   forStore(@CurrentUser('userId') userId: string, @Param('storeId') storeId: string) {
     return this.orders.listForStore(userId, storeId)
   }
@@ -59,11 +67,24 @@ export class OrdersController {
     return this.orders.review(userId, id, dto)
   }
 
-  // Le manager marque la part de son enseigne comme prête à être retirée.
+  // Le gérant ou un employé marque la part de son enseigne comme prête.
   @Post(':id/store/:storeId/ready')
   @UseGuards(RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   storeReady(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('storeId') storeId: string) {
     return this.orders.markStoreReady(userId, id, storeId)
+  }
+
+  // Retrait sur place : l'enseigne valide la remise avec le code du client.
+  @Post(':id/store/:storeId/complete-pickup')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  completePickup(
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Param('storeId') storeId: string,
+    @Body() body: { code: string },
+  ) {
+    return this.orders.completePickup(userId, id, storeId, body?.code || '')
   }
 }

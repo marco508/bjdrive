@@ -19,7 +19,7 @@ import { RolesGuard } from '../common/roles.guard'
 import { Roles, CurrentUser } from '../common/decorators'
 import { imageUploadOptions } from '../common/upload'
 import { StoresService } from './stores.service'
-import { CreateStoreDto, UpdateStoreDto, ProductDto, ImportProductsDto, UpdateProductDto } from './dto'
+import { CreateStaffDto, CreateStoreDto, UpdateStoreDto, ProductDto, ImportProductsDto, UpdateProductDto } from './dto'
 
 @Controller()
 export class StoresController {
@@ -86,24 +86,61 @@ export class StoresController {
     return this.stores.updateStore(userId, id, dto)
   }
 
-  // -------- Produits (manager) --------
-  @Post('stores/:id/products')
+  // -------- Employés (gérant uniquement) --------
+  @Get('stores/:id/staff')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MANAGER)
+  listStaff(@CurrentUser('userId') userId: string, @Param('id') id: string) {
+    return this.stores.listStaff(userId, id)
+  }
+
+  @Post('stores/:id/staff')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER)
+  addStaff(@CurrentUser('userId') userId: string, @Param('id') id: string, @Body() dto: CreateStaffDto) {
+    return this.stores.addStaff(userId, id, dto)
+  }
+
+  @Delete('stores/:id/staff/:staffId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER)
+  removeStaff(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('staffId') staffId: string) {
+    return this.stores.removeStaff(userId, id, staffId)
+  }
+
+  // L'enseigne de l'employé connecté.
+  @Get('staff/my-store')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.STAFF)
+  myStaffStore(@CurrentUser('userId') userId: string) {
+    return this.stores.myStaffStore(userId)
+  }
+
+  // -------- Produits (gérant OU employé de l'enseigne) --------
+  @Get('stores/:id/products/barcode/:code')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  findByBarcode(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('code') code: string) {
+    return this.stores.findByBarcode(userId, id, code)
+  }
+
+  @Post('stores/:id/products')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
   addProduct(@CurrentUser('userId') userId: string, @Param('id') id: string, @Body() dto: ProductDto) {
     return this.stores.addProduct(userId, id, dto)
   }
 
   @Post('stores/:id/products/import')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   importProducts(@CurrentUser('userId') userId: string, @Param('id') id: string, @Body() dto: ImportProductsDto) {
     return this.stores.importProducts(userId, id, dto)
   }
 
   @Patch('products/:productId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   updateProduct(@CurrentUser('userId') userId: string, @Param('productId') productId: string, @Body() dto: UpdateProductDto) {
     return this.stores.updateProduct(userId, productId, dto)
   }
@@ -120,7 +157,7 @@ export class StoresController {
 
   @Post('products/:productId/image')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   @UseInterceptors(FileInterceptor('file', imageUploadOptions))
   uploadProductImage(@CurrentUser('userId') userId: string, @Param('productId') productId: string, @UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('Aucun fichier reçu (champ "file").')
@@ -129,7 +166,7 @@ export class StoresController {
 
   @Delete('products/:productId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.MANAGER)
+  @Roles(Role.MANAGER, Role.STAFF)
   removeProduct(@CurrentUser('userId') userId: string, @Param('productId') productId: string) {
     return this.stores.removeProduct(userId, productId)
   }

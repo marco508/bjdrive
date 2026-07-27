@@ -19,6 +19,8 @@ function makeService(overrides: any = {}) {
     orderStatusHistory: { create: jest.fn() },
     delivery: { delete: jest.fn() },
     review: { upsert: jest.fn() },
+    store: { findUnique: jest.fn().mockResolvedValue(STORE), findMany: jest.fn().mockResolvedValue([{ ownerId: 'owner1' }]) },
+    user: { findUnique: jest.fn().mockResolvedValue({ staffStoreId: null }), findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn(async (arg: any) => (typeof arg === 'function' ? arg(prisma) : Promise.all(arg))),
     ...overrides.prisma,
   }
@@ -35,7 +37,8 @@ function makeService(overrides: any = {}) {
   const realtime: any = { emitOrder: jest.fn(), emitDrivers: jest.fn() }
   const notifications: any = { sendToUser: jest.fn(), sendToUsers: jest.fn(), notifyNearbyDrivers: jest.fn() }
   const payments: any = { requestRefund: jest.fn().mockResolvedValue({ refunded: true }) }
-  return { svc: new OrdersService(prisma, settings, realtime, notifications, payments), prisma, payments, realtime }
+  const mail: any = { sendInvoice: jest.fn() }
+  return { svc: new OrdersService(prisma, settings, realtime, notifications, payments, mail), prisma, payments, realtime, mail }
 }
 
 const DTO: any = { items: [{ productId: 'p1', qty: 2 }], destLat: 6.36, destLng: 2.41 }

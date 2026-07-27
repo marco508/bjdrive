@@ -7,6 +7,8 @@ import { PrismaModule } from './prisma/prisma.module'
 import { CommonModule } from './common/common.module'
 import { RealtimeModule } from './realtime/realtime.module'
 import { NotificationsModule } from './notifications/notifications.module'
+import { MailModule } from './mail/mail.service'
+import { ChatModule } from './chat/chat.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { StoresModule } from './stores/stores.module'
@@ -26,6 +28,8 @@ import { AppController } from './app.controller'
     CommonModule,
     RealtimeModule,
     NotificationsModule,
+    MailModule,
+    ChatModule,
     AuthModule,
     UsersModule,
     StoresModule,

@@ -18,6 +18,13 @@ enum Role {
   MANAGER // propriétaire/gérant d'une enseigne
   DRIVER // livreur
   SUPERADMIN // propriétaire de l'application
+  STAFF // employé d'une enseigne (créé par son manager, lié à UNE enseigne)
+}
+
+// Mode de réception de la commande.
+enum Fulfillment {
+  DELIVERY // livraison à domicile par un livreur
+  PICKUP // le client passe retirer sa commande à l'enseigne
 }
 
 enum StoreStatus {
@@ -100,6 +107,11 @@ model User {
   pushSubscriptions PushSubscription[]
   payouts           Payout[]         @relation("PayoutBeneficiary")
   reviews           Review[]         @relation("ReviewAuthor")
+  messages          Message[]
+
+  // Employé (role STAFF) : rattaché à UNE enseigne, dont il gère produits et commandes.
+  staffStore   Store?  @relation("StoreStaff", fields: [staffStoreId], references: [id], onDelete: SetNull)
+  staffStoreId String?
 }
 
 // Jeton de rafraîchissement (rotation : un nouveau jeton révoque l'ancien).
@@ -184,6 +196,7 @@ model Store {
 
   products    Product[]
   orderStores OrderStore[]
+  staff       User[]       @relation("StoreStaff")
 
   @@index([status])
   @@index([categoryId])
@@ -198,6 +211,9 @@ model Product {
   category    String? // rayon interne (Épicerie, Frais...)
   emoji       String?
   imageUrl    String? // photo du produit (upload local /uploads)
+  // Code-barres INTERNE à l'enseigne (le même produit peut avoir un code
+  // différent selon l'enseigne) — utilisé par le scanner des employés.
+  barcode     String?
   price       Int // FCFA
   stock       Int      @default(0)
   unit        String   @default("pièce")
@@ -205,6 +221,7 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([storeId, barcode])
   @@index([storeId])
 }
 
@@ -233,6 +250,8 @@ model Order {
 
   // Mode de paiement : KkiaPay (payé d'avance) ou espèces à la livraison
   paymentMethod PaymentMethod @default(KKIAPAY)
+  // Livraison à domicile ou retrait à l'enseigne par le client
+  fulfillment   Fulfillment   @default(DELIVERY)
 
   // Code de réception (type Uber Eats) remis au livreur à la livraison
   receptionCode String
@@ -253,6 +272,7 @@ model Order {
   delivery Delivery?
   payment  Payment?
   reviews  Review[]
+  messages Message[]
 
   @@index([status])
   @@index([clientId])
@@ -374,6 +394,20 @@ model Payout {
   createdAt   DateTime        @default(now())
 
   @@index([userId])
+}
+
+// Discussion privée d'une commande : client + personnel de l'enseigne + livreur.
+model Message {
+  id         String   @id @default(cuid())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderRole Role // rôle au moment de l'envoi (affichage : Client / Enseigne / Livreur)
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 // Avis laissé par le client après livraison (sur le livreur et/ou chaque enseigne).

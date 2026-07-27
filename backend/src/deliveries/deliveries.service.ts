@@ -5,6 +5,7 @@ import { GeoService } from '../common/geo.service'
 import { SettingsService } from '../common/settings.service'
 import { RealtimeGateway } from '../realtime/realtime.gateway'
 import { NotificationsService } from '../notifications/notifications.service'
+import { MailService } from '../mail/mail.service'
 import { haversine } from '../common/distance'
 
 const AVG_SPEED_KMH = 22 // vitesse moyenne d'un zémidjan en ville
@@ -18,6 +19,7 @@ export class DeliveriesService {
     private settings: SettingsService,
     private realtime: RealtimeGateway,
     private notifications: NotificationsService,
+    private mail: MailService,
   ) {}
 
   private startOfToday() {
@@ -266,6 +268,8 @@ export class DeliveriesService {
       url: `/client/track/${orderId}`,
       tag: `order-${orderId}`,
     })
+    // Commande cash : la facture part maintenant que le paiement est encaissé.
+    if (order.paymentMethod === PaymentMethod.CASH) this.mail.sendInvoice(orderId)
     return { ok: true }
   }
 

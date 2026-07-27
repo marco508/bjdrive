@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
+import { Fulfillment, OrderStatus, PaymentMethod, PaymentStatus, Role } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { RealtimeGateway } from '../realtime/realtime.gateway'
 import { NotificationsService } from '../notifications/notifications.service'
+import { MailService } from '../mail/mail.service'
 
 @Injectable()
 export class PaymentsService {
@@ -14,6 +15,7 @@ export class PaymentsService {
     private config: ConfigService,
     private realtime: RealtimeGateway,
     private notifications: NotificationsService,
+    private mail: MailService,
   ) {}
 
   private get sandbox() {
@@ -129,12 +131,14 @@ export class PaymentsService {
       include: { stores: { include: { store: { select: { ownerId: true, name: true } } } } },
     })
     if (!order) return
+    // Retrait sur place : pas de livreur, la commande passe en préparation.
+    const nextStatus = order.fulfillment === Fulfillment.PICKUP ? OrderStatus.AWAITING_PICKUP : OrderStatus.AWAITING_DRIVER
     await this.prisma.$transaction([
       this.prisma.order.update({
         where: { id: orderId },
-        data: { paymentStatus: PaymentStatus.PAID, status: OrderStatus.AWAITING_DRIVER },
+        data: { paymentStatus: PaymentStatus.PAID, status: nextStatus },
       }),
-      this.prisma.orderStatusHistory.create({ data: { orderId, status: OrderStatus.AWAITING_DRIVER } }),
+      this.prisma.orderStatusHistory.create({ data: { orderId, status: nextStatus } }),
       this.prisma.payment.upsert({
         where: { orderId },
         update: { status: PaymentStatus.PAID, providerRef: transactionId },
@@ -145,30 +149,42 @@ export class PaymentsService {
           amount: order.total,
           status: PaymentStatus.PAID,
           storeAmount: order.subtotal, // → enseigne
-          driverAmount: order.deliveryFee, // → livreur
+          driverAmount: order.deliveryFee, // → livreur (0 pour un retrait)
           platformAmount: order.commission, // → plateforme (10%)
         },
       }),
     ])
-    this.realtime.emitOrder(orderId, 'orderUpdate', { id: orderId, status: OrderStatus.AWAITING_DRIVER, paid: true })
-    this.realtime.emitDrivers('newOrderAvailable', { orderId })
-    // Push : client, managers des enseignes concernées, livreurs proches du départ.
+    this.realtime.emitOrder(orderId, 'orderUpdate', { id: orderId, status: nextStatus, paid: true })
+    // Push : client + toute l'équipe (gérant + employés) des enseignes concernées.
     this.notifications.sendToUser(order.clientId, {
       title: 'Paiement confirmé ✅',
-      body: 'Votre commande est payée, recherche d’un livreur en cours…',
+      body:
+        order.fulfillment === Fulfillment.PICKUP
+          ? 'Votre commande est payée — vous serez prévenu quand elle sera prête à retirer.'
+          : 'Votre commande est payée, recherche d’un livreur en cours…',
       url: `/client/track/${orderId}`,
       tag: `order-${orderId}`,
     })
+    const storeIds = order.stores.map((os: any) => os.storeId)
+    const staff = await this.prisma.user.findMany({
+      where: { staffStoreId: { in: storeIds }, role: Role.STAFF },
+      select: { id: true },
+    })
     this.notifications.sendToUsers(
-      order.stores.map((os) => os.store.ownerId),
+      [...order.stores.map((os) => os.store.ownerId), ...staff.map((s) => s.id)],
       { title: 'Nouvelle commande 🛒', body: 'Une commande payée attend sa préparation.', url: '/manager/orders' },
     )
-    if (order.originLat != null && order.originLng != null) {
-      this.notifications.notifyNearbyDrivers(
-        { lat: order.originLat, lng: order.originLng },
-        { title: 'Course disponible 🛵', body: `Livraison à ${order.deliveryFee} FCFA près de vous.`, url: '/driver' },
-      )
+    if (order.fulfillment === Fulfillment.DELIVERY) {
+      this.realtime.emitDrivers('newOrderAvailable', { orderId })
+      if (order.originLat != null && order.originLng != null) {
+        this.notifications.notifyNearbyDrivers(
+          { lat: order.originLat, lng: order.originLng },
+          { title: 'Course disponible 🛵', body: `Livraison à ${order.deliveryFee} FCFA près de vous.`, url: '/driver' },
+        )
+      }
     }
+    // Facture nominative envoyée par e-mail au client.
+    this.mail.sendInvoice(orderId)
   }
 
   // ---- Remboursements (commande payée puis annulée) ----
