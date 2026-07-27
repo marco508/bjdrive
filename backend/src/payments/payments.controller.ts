@@ -24,11 +24,18 @@ export class PaymentsController {
     return this.payments.confirm(userId, orderId, body?.transactionId)
   }
 
-  // Webhook public appelé par KkiaPay. Protégé par KKIAPAY_WEBHOOK_SECRET
-  // (header x-webhook-secret ou ?token=) et re-vérification de la transaction.
+  // Webhook public appelé par KkiaPay. Protégé par KKIAPAY_WEBHOOK_SECRET :
+  // KkiaPay renvoie le « secret hash » du dashboard dans le header
+  // x-kkiapay-secret (fallbacks : x-webhook-secret ou ?token=).
+  // La transaction est de toute façon re-vérifiée auprès de l'API KkiaPay.
   @Post('webhook')
   @SkipThrottle()
-  webhook(@Body() body: any, @Headers('x-webhook-secret') secret?: string, @Query('token') token?: string) {
-    return this.payments.webhook(body, secret || token)
+  webhook(
+    @Body() body: any,
+    @Headers('x-kkiapay-secret') kkiapaySecret?: string,
+    @Headers('x-webhook-secret') secret?: string,
+    @Query('token') token?: string,
+  ) {
+    return this.payments.webhook(body, kkiapaySecret || secret || token)
   }
 }
