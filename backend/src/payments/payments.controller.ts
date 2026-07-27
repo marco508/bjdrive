@@ -1,4 +1,5 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Headers, Param, Post, Query, UseGuards } from '@nestjs/common'
+import { SkipThrottle } from '@nestjs/throttler'
 import { Role } from '@prisma/client'
 import { JwtAuthGuard } from '../common/jwt-auth.guard'
 import { RolesGuard } from '../common/roles.guard'
@@ -23,9 +24,11 @@ export class PaymentsController {
     return this.payments.confirm(userId, orderId, body?.transactionId)
   }
 
-  // Webhook public appelé par KkiaPay
+  // Webhook public appelé par KkiaPay. Protégé par KKIAPAY_WEBHOOK_SECRET
+  // (header x-webhook-secret ou ?token=) et re-vérification de la transaction.
   @Post('webhook')
-  webhook(@Body() body: any) {
-    return this.payments.webhook(body)
+  @SkipThrottle()
+  webhook(@Body() body: any, @Headers('x-webhook-secret') secret?: string, @Query('token') token?: string) {
+    return this.payments.webhook(body, secret || token)
   }
 }

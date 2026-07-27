@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
-import { Role, StoreStatus } from '@prisma/client'
+import { DriverStatus, Role, StoreStatus } from '@prisma/client'
 import { JwtAuthGuard } from '../common/jwt-auth.guard'
 import { RolesGuard } from '../common/roles.guard'
 import { Roles, CurrentUser } from '../common/decorators'
 import { AdminService } from './admin.service'
-import { SetRoleDto, UpdateConfigDto, VerifyStoreDto } from './dto'
+import { CreatePayoutDto, MarkRefundedDto, SetRoleDto, UpdateConfigDto, VerifyDriverDto, VerifyStoreDto } from './dto'
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -17,6 +17,7 @@ export class AdminController {
     return this.admin.overview()
   }
 
+  // -------- Enseignes --------
   @Get('stores')
   stores(@Query('status') status?: StoreStatus) {
     return this.admin.listStores(status)
@@ -32,6 +33,61 @@ export class AdminController {
     return this.admin.suspendStore(id, body?.suspended)
   }
 
+  // -------- Livreurs --------
+  @Get('drivers')
+  drivers(@Query('status') status?: DriverStatus) {
+    return this.admin.listDrivers(status)
+  }
+
+  @Post('drivers/:userId/verify')
+  verifyDriver(@CurrentUser('userId') adminId: string, @Param('userId') userId: string, @Body() dto: VerifyDriverDto) {
+    return this.admin.verifyDriver(adminId, userId, dto)
+  }
+
+  @Patch('drivers/:userId/suspend')
+  suspendDriver(@Param('userId') userId: string, @Body() body: { suspended: boolean }) {
+    return this.admin.suspendDriver(userId, body?.suspended)
+  }
+
+  // -------- Commandes --------
+  @Post('orders/:orderId/reset-code')
+  resetCode(@Param('orderId') orderId: string) {
+    return this.admin.resetCodeAttempts(orderId)
+  }
+
+  // -------- Remboursements --------
+  @Get('refunds')
+  refunds() {
+    return this.admin.listRefunds()
+  }
+
+  @Post('refunds/:orderId/retry')
+  retryRefund(@Param('orderId') orderId: string) {
+    return this.admin.retryRefund(orderId)
+  }
+
+  @Post('refunds/:orderId/mark-refunded')
+  markRefunded(@Param('orderId') orderId: string, @Body() dto: MarkRefundedDto) {
+    return this.admin.markRefunded(orderId, dto)
+  }
+
+  // -------- Versements --------
+  @Get('balances')
+  balances() {
+    return this.admin.balances()
+  }
+
+  @Get('payouts')
+  payouts(@Query('userId') userId?: string) {
+    return this.admin.listPayouts(userId)
+  }
+
+  @Post('payouts')
+  createPayout(@CurrentUser('userId') adminId: string, @Body() dto: CreatePayoutDto) {
+    return this.admin.createPayout(adminId, dto)
+  }
+
+  // -------- Configuration --------
   @Get('config')
   getConfig() {
     return this.admin.getConfig()
@@ -42,6 +98,7 @@ export class AdminController {
     return this.admin.updateConfig(dto)
   }
 
+  // -------- Comptes --------
   @Get('users')
   users(@Query('role') role?: string) {
     return this.admin.listUsers(role)

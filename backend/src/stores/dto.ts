@@ -33,6 +33,10 @@ export class UpdateStoreDto {
   @IsOptional() @IsBoolean() active?: boolean
 }
 
+export class SetImageDto {
+  @IsString() imageUrl: string
+}
+
 export class ProductDto {
   @IsString() name: string
   @IsOptional() @IsString() description?: string

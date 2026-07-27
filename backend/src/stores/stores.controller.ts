@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,12 +8,16 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { Role } from '@prisma/client'
 import { JwtAuthGuard } from '../common/jwt-auth.guard'
 import { RolesGuard } from '../common/roles.guard'
 import { Roles, CurrentUser } from '../common/decorators'
+import { imageUploadOptions } from '../common/upload'
 import { StoresService } from './stores.service'
 import { CreateStoreDto, UpdateStoreDto, ProductDto, ImportProductsDto, UpdateProductDto } from './dto'
 
@@ -101,6 +106,25 @@ export class StoresController {
   @Roles(Role.MANAGER)
   updateProduct(@CurrentUser('userId') userId: string, @Param('productId') productId: string, @Body() dto: UpdateProductDto) {
     return this.stores.updateProduct(userId, productId, dto)
+  }
+
+  // -------- Photos (enseigne / produit) --------
+  @Post('stores/:id/image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER)
+  @UseInterceptors(FileInterceptor('file', imageUploadOptions))
+  uploadStoreImage(@CurrentUser('userId') userId: string, @Param('id') id: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Aucun fichier reçu (champ "file").')
+    return this.stores.setStoreImage(userId, id, `/uploads/${file.filename}`)
+  }
+
+  @Post('products/:productId/image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER)
+  @UseInterceptors(FileInterceptor('file', imageUploadOptions))
+  uploadProductImage(@CurrentUser('userId') userId: string, @Param('productId') productId: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Aucun fichier reçu (champ "file").')
+    return this.stores.setProductImage(userId, productId, `/uploads/${file.filename}`)
   }
 
   @Delete('products/:productId')

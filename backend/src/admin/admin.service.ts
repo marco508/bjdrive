@@ -1,13 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
-import { OrderStatus, PaymentStatus, StoreStatus } from '@prisma/client'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { DriverStatus, OrderStatus, PaymentMethod, PaymentStatus, StoreStatus } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { SettingsService } from '../common/settings.service'
-import { RealtimeGateway } from '../realtime/realtime.gateway'
-import { VerifyStoreDto, UpdateConfigDto } from './dto'
+import { NotificationsService } from '../notifications/notifications.service'
+import { PaymentsService } from '../payments/payments.service'
+import { CreatePayoutDto, MarkRefundedDto, UpdateConfigDto, VerifyDriverDto, VerifyStoreDto } from './dto'
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService, private settings: SettingsService, private realtime: RealtimeGateway) {}
+  constructor(
+    private prisma: PrismaService,
+    private settings: SettingsService,
+    private notifications: NotificationsService,
+    private payments: PaymentsService,
+  ) {}
 
   // -------- Vérification des enseignes --------
   listStores(status?: StoreStatus) {
@@ -21,7 +27,7 @@ export class AdminService {
   async verifyStore(adminId: string, storeId: string, dto: VerifyStoreDto) {
     const store = await this.prisma.store.findUnique({ where: { id: storeId } })
     if (!store) throw new NotFoundException('Boutique introuvable.')
-    return this.prisma.store.update({
+    const updated = await this.prisma.store.update({
       where: { id: storeId },
       data: {
         status: dto.approved ? StoreStatus.VERIFIED : StoreStatus.REJECTED,
@@ -31,6 +37,14 @@ export class AdminService {
         verifiedAt: new Date(),
       },
     })
+    this.notifications.sendToUser(store.ownerId, {
+      title: dto.approved ? 'Enseigne vérifiée ✅' : 'Enseigne refusée',
+      body: dto.approved
+        ? `${store.name} est maintenant visible des clients.`
+        : `${store.name} n'a pas été validée. ${dto.notes || ''}`.trim(),
+      url: '/manager',
+    })
+    return updated
   }
 
   suspendStore(storeId: string, suspended: boolean) {
@@ -40,7 +54,170 @@ export class AdminService {
     })
   }
 
-  // -------- Configuration (tarifs, commission, plafond) --------
+  // -------- Vérification des livreurs --------
+  listDrivers(status?: DriverStatus) {
+    return this.prisma.driverProfile.findMany({
+      where: status ? { status } : {},
+      include: { user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  async verifyDriver(adminId: string, userId: string, dto: VerifyDriverDto) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } })
+    if (!profile) throw new NotFoundException('Profil livreur introuvable.')
+    const updated = await this.prisma.driverProfile.update({
+      where: { userId },
+      data: {
+        status: dto.approved ? DriverStatus.VERIFIED : DriverStatus.REJECTED,
+        verificationNotes: dto.notes,
+        verifiedById: adminId,
+        verifiedAt: new Date(),
+      },
+    })
+    this.notifications.sendToUser(userId, {
+      title: dto.approved ? 'Compte livreur vérifié ✅' : 'Vérification refusée',
+      body: dto.approved
+        ? 'Vous pouvez maintenant accepter des livraisons. Bonne route !'
+        : `Votre compte livreur n'a pas été validé. ${dto.notes || ''}`.trim(),
+      url: '/driver',
+    })
+    return updated
+  }
+
+  suspendDriver(userId: string, suspended: boolean) {
+    return this.prisma.driverProfile.update({
+      where: { userId },
+      data: { status: suspended ? DriverStatus.SUSPENDED : DriverStatus.VERIFIED },
+    })
+  }
+
+  // Débloque le code de réception d'une commande (après trop de tentatives).
+  async resetCodeAttempts(orderId: string) {
+    await this.prisma.order.update({ where: { id: orderId }, data: { codeAttempts: 0 } })
+    return { ok: true }
+  }
+
+  // -------- Remboursements --------
+  listRefunds() {
+    return this.prisma.order.findMany({
+      where: { paymentStatus: PaymentStatus.REFUND_PENDING },
+      include: {
+        client: { select: { id: true, name: true, email: true, phone: true } },
+        payment: true,
+      },
+      orderBy: { updatedAt: 'asc' },
+    })
+  }
+
+  retryRefund(orderId: string) {
+    return this.payments.retryRefund(orderId)
+  }
+
+  async markRefunded(orderId: string, dto: MarkRefundedDto) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } })
+    if (!order) throw new NotFoundException('Commande introuvable.')
+    if (order.paymentStatus !== PaymentStatus.REFUND_PENDING) {
+      throw new BadRequestException('Aucun remboursement en attente pour cette commande.')
+    }
+    return this.payments.markRefunded(orderId, dto.reference || 'manuel')
+  }
+
+  // -------- Versements (soldes dus aux enseignes et livreurs) --------
+  //
+  // Enseigne : + payoutAmount de chaque commande LIVRÉE et PAYÉE − versements reçus.
+  // Livreur  : + frais de livraison des commandes livrées payées en ligne
+  //            − espèces dues (total collecté − ses frais) sur les commandes cash
+  //            − versements reçus (un versement négatif = dépôt d'espèces).
+  async balances() {
+    const [storeParts, deliveries, payouts] = await Promise.all([
+      this.prisma.orderStore.findMany({
+        where: { order: { status: OrderStatus.DELIVERED, paymentStatus: PaymentStatus.PAID } },
+        select: {
+          payoutAmount: true,
+          store: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true, phone: true } } } },
+        },
+      }),
+      this.prisma.delivery.findMany({
+        where: { deliveredAt: { not: null } },
+        select: {
+          earnings: true,
+          driver: { select: { id: true, name: true, email: true, phone: true } },
+          order: { select: { paymentMethod: true, paymentStatus: true, total: true, deliveryFee: true } },
+        },
+      }),
+      this.prisma.payout.groupBy({ by: ['userId'], _sum: { amount: true } }),
+    ])
+    const paidByUser = new Map(payouts.map((p) => [p.userId, p._sum.amount || 0]))
+
+    const stores = new Map<string, any>()
+    for (const part of storeParts) {
+      const owner = part.store.owner
+      const row = stores.get(owner.id) || { user: owner, storeNames: new Set<string>(), earned: 0 }
+      row.earned += part.payoutAmount
+      row.storeNames.add(part.store.name)
+      stores.set(owner.id, row)
+    }
+
+    const drivers = new Map<string, any>()
+    for (const d of deliveries) {
+      const row = drivers.get(d.driver.id) || { user: d.driver, earningsOnline: 0, cashCollected: 0, cashOwed: 0 }
+      if (d.order.paymentMethod === PaymentMethod.CASH) {
+        row.cashCollected += d.order.total
+        row.cashOwed += d.order.total - d.order.deliveryFee // il garde ses frais
+      } else if (d.order.paymentStatus === PaymentStatus.PAID) {
+        row.earningsOnline += d.earnings
+      }
+      drivers.set(d.driver.id, row)
+    }
+
+    return {
+      stores: [...stores.values()].map((r) => {
+        const paidOut = paidByUser.get(r.user.id) || 0
+        return { ...r, storeNames: [...r.storeNames], paidOut, balance: r.earned - paidOut }
+      }),
+      drivers: [...drivers.values()].map((r) => {
+        const paidOut = paidByUser.get(r.user.id) || 0
+        return { ...r, paidOut, balance: r.earningsOnline - r.cashOwed - paidOut }
+      }),
+    }
+  }
+
+  async createPayout(adminId: string, dto: CreatePayoutDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } })
+    if (!user) throw new NotFoundException('Bénéficiaire introuvable.')
+    if (dto.amount === 0) throw new BadRequestException('Montant nul.')
+    const payout = await this.prisma.payout.create({
+      data: {
+        userId: dto.userId,
+        amount: dto.amount,
+        provider: dto.provider,
+        reference: dto.reference,
+        note: dto.note,
+        createdById: adminId,
+      },
+    })
+    this.notifications.sendToUser(dto.userId, {
+      title: dto.amount > 0 ? 'Versement effectué 💸' : 'Dépôt enregistré',
+      body:
+        dto.amount > 0
+          ? `BjDrive vous a versé ${dto.amount} FCFA.`
+          : `Votre dépôt de ${-dto.amount} FCFA a bien été enregistré.`,
+      url: '/',
+    })
+    return payout
+  }
+
+  listPayouts(userId?: string) {
+    return this.prisma.payout.findMany({
+      where: userId ? { userId } : {},
+      include: { user: { select: { id: true, name: true, email: true, role: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+  }
+
+  // -------- Configuration (tarifs, commission, plafond, cash) --------
   getConfig() {
     return this.settings.get()
   }
@@ -68,25 +245,29 @@ export class AdminService {
 
   // -------- Vue d'ensemble (KPIs) --------
   async overview() {
-    const [stores, pending, users, drivers, orders, delivered, payments] = await Promise.all([
+    const [stores, pending, users, drivers, pendingDrivers, orders, delivered, payments, refundsPending] = await Promise.all([
       this.prisma.store.count({ where: { status: StoreStatus.VERIFIED } }),
       this.prisma.store.count({ where: { status: StoreStatus.PENDING } }),
       this.prisma.user.count(),
       this.prisma.user.count({ where: { role: 'DRIVER' } }),
+      this.prisma.driverProfile.count({ where: { status: DriverStatus.PENDING } }),
       this.prisma.order.count(),
       this.prisma.order.count({ where: { status: OrderStatus.DELIVERED } }),
       this.prisma.payment.aggregate({
         where: { status: PaymentStatus.PAID },
         _sum: { amount: true, platformAmount: true, storeAmount: true, driverAmount: true },
       }),
+      this.prisma.order.count({ where: { paymentStatus: PaymentStatus.REFUND_PENDING } }),
     ])
     return {
       verifiedStores: stores,
       pendingStores: pending,
       users,
       drivers,
+      pendingDrivers,
       orders,
       deliveredOrders: delivered,
+      refundsPending,
       grossVolume: payments._sum.amount || 0,
       platformRevenue: payments._sum.platformAmount || 0, // commission 10% encaissée
       storesPayout: payments._sum.storeAmount || 0,

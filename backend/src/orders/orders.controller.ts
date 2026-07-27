@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../common/jwt-auth.guard'
 import { RolesGuard } from '../common/roles.guard'
 import { Roles, CurrentUser } from '../common/decorators'
 import { OrdersService } from './orders.service'
-import { CreateOrderDto, ScheduleDto } from './dto'
+import { CreateOrderDto, ReviewDto, ScheduleDto } from './dto'
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -49,5 +49,21 @@ export class OrdersController {
   @Roles(Role.CLIENT)
   cancel(@CurrentUser('userId') userId: string, @Param('id') id: string) {
     return this.orders.cancel(userId, id)
+  }
+
+  // Avis après livraison (livreur et/ou enseignes).
+  @Post(':id/review')
+  @UseGuards(RolesGuard)
+  @Roles(Role.CLIENT)
+  review(@CurrentUser('userId') userId: string, @Param('id') id: string, @Body() dto: ReviewDto) {
+    return this.orders.review(userId, id, dto)
+  }
+
+  // Le manager marque la part de son enseigne comme prête à être retirée.
+  @Post(':id/store/:storeId/ready')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER)
+  storeReady(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('storeId') storeId: string) {
+    return this.orders.markStoreReady(userId, id, storeId)
   }
 }

@@ -36,7 +36,13 @@ export class StoresService {
       include: { category: true, products: { where: { active: true }, orderBy: { category: 'asc' } } },
     })
     if (!store) throw new NotFoundException('Boutique introuvable ou non vérifiée.')
-    return store
+    // Note moyenne laissée par les clients après livraison.
+    const agg = await this.prisma.review.aggregate({
+      where: { targetType: 'STORE', targetId: id },
+      _avg: { rating: true },
+      _count: true,
+    })
+    return { ...store, rating: agg._avg.rating, ratingCount: agg._count }
   }
 
   categories() {
@@ -53,7 +59,7 @@ export class StoresService {
   listMine(ownerId: string) {
     return this.prisma.store.findMany({
       where: { ownerId },
-      include: { category: true, _count: { select: { products: true, orders: true } } },
+      include: { category: true, _count: { select: { products: true, orderStores: true } } },
       orderBy: { createdAt: 'desc' },
     })
   }
@@ -117,6 +123,17 @@ export class StoresService {
     await this.assertProductOwner(productId, ownerId)
     await this.prisma.product.delete({ where: { id: productId } })
     return { ok: true }
+  }
+
+  // ---- Photos (fichier déjà écrit sur disque par multer, on stocke l'URL) ----
+  async setStoreImage(ownerId: string, storeId: string, imageUrl: string) {
+    await this.assertOwner(storeId, ownerId)
+    return this.prisma.store.update({ where: { id: storeId }, data: { imageUrl }, select: { id: true, imageUrl: true } })
+  }
+
+  async setProductImage(ownerId: string, productId: string, imageUrl: string) {
+    await this.assertProductOwner(productId, ownerId)
+    return this.prisma.product.update({ where: { id: productId }, data: { imageUrl }, select: { id: true, imageUrl: true } })
   }
 
   // Met à jour la colonne géographique PostGIS d'une boutique.

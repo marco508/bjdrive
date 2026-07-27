@@ -13,13 +13,19 @@ export class DeliveriesController {
   constructor(private deliveries: DeliveriesService) {}
 
   @Get('available')
-  available(@Query('lat') lat: string, @Query('lng') lng: string, @Query('radius') radius?: string) {
-    return this.deliveries.available(Number(lat), Number(lng), radius ? Number(radius) : undefined)
+  available(@CurrentUser('userId') userId: string, @Query('lat') lat: string, @Query('lng') lng: string, @Query('radius') radius?: string) {
+    return this.deliveries.available(userId, Number(lat), Number(lng), radius ? Number(radius) : undefined)
   }
 
   @Get('mine')
   mine(@CurrentUser('userId') userId: string) {
     return this.deliveries.mine(userId)
+  }
+
+  // Historique de gains par jour : /deliveries/earnings?days=30
+  @Get('earnings')
+  earnings(@CurrentUser('userId') userId: string, @Query('days') days?: string) {
+    return this.deliveries.earningsHistory(userId, days ? Number(days) : undefined)
   }
 
   @Post('accept/:orderId')
