@@ -1,49 +1,49 @@
 # BjDrive 🛒🛵
 
-Marketplace de livraison à domicile au **Bénin** : les clients commandent auprès d'enseignes vérifiées (supermarché, hypermarché, kiosque, pharmacie…) et se font livrer, avec **suivi du livreur en temps réel**, **paiement KkiaPay** (Mobile Money / Moov Money / carte) et **commission plateforme de 10 %**.
+Marketplace de livraison au **Bénin** : les clients commandent auprès d'**enseignes vérifiées** (supermarché, kiosque, pharmacie…) et se font **livrer** — ou passent **retirer sur place** — avec suivi du livreur en temps réel, **paiement KkiaPay** (Mobile Money / Moov / carte) ou **espèces**, facture par e-mail et **commission plateforme de 10 %** incluse dans le total client.
 
 ## Organisation du dépôt (monorepo)
 
 ```
 BjDrive/
-  backend/            API NestJS + Prisma + PostgreSQL/PostGIS  (voir backend/README.md)
-  frontend/           Application web PWA (React) — à rebrancher sur l'API
-  docker-compose.yml  Base de données + API + Web, en une commande
+  backend/                 API NestJS + Prisma + PostgreSQL/PostGIS   (voir backend/README.md)
+  frontend/                Application web PWA React (responsive : mobile + desktop avec sidebar)
+  mobile/                  Application mobile React Native / Expo      (voir mobile/README.md)
+  docker-compose.yml       Base + API + Web en une commande (dev)
+  docker-compose.prod.yml  Surcouche production (Traefik + HTTPS)
 ```
 
-## Démarrage
+## Démarrage (développement)
 
 ```bash
 docker compose up --build
 ```
-- API : http://localhost:3007/api
-- Web : http://localhost:8080
-- Base : PostgreSQL/PostGIS sur le port 5432
 
-Le super-admin est créé au démarrage (identifiants dans les variables d'environnement, voir `backend/.env.example`).
+- Web : http://localhost:8080 · API : http://localhost:3007/api · Base : `localhost:5433`
+- Le super-admin est **synchronisé au démarrage** depuis `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`
+  (fichier `.env` à la racine, jamais dans le code — voir `backend/.env.example`).
+- Sans clés KkiaPay ni SMTP, les paiements sont **simulés** et les e-mails **loggués** (dev uniquement).
 
-## Parcours couverts par le backend
+## Les 5 rôles et leurs parcours
 
-**Client** — se connecte, choisit une enseigne vérifiée, remplit son panier, paie en une fois (produits + livraison + 10 % de commission), suit son livreur en temps réel, valide la réception par un **code**.
+**Client** — enseignes proches (GPS), recherche d'un produit multi-enseignes, panier combiné, choix **livraison ou retrait sur place**, paiement en ligne ou en espèces (facture nominative par e-mail), suivi temps réel + **discussion privée** avec l'enseigne et le livreur, code de réception, notation ⭐, tableau de bord de ses habitudes d'achat.
 
-**Livreur** — voit les commandes payées **proches de lui**, en choisit jusqu'à **5 par jour** (plafond configurable), récupère au magasin (un créneau de livraison est alors proposé au client), partage sa position GPS, clôture avec le code de réception. Il voit ses **gains estimés du jour**.
+**Livreur** — compte **vérifié par l'admin** avant la première course ; **période de confiance** (pas d'espèces ni de gros paniers avant N livraisons réussies) ; courses proches en temps réel, retraits par enseigne (badge « prête », remise tracée), partage GPS continu (persisté comme preuve), validation par code (5 essais max), gains du jour et sur 30 jours, note moyenne.
 
-**Manager d'enseigne** — crée sa boutique (en attente de **vérification**), la positionne sur la carte, gère ses produits et stocks (manuellement ou par **import**), renseigne ses coordonnées de versement.
+**Manager d'enseigne** — boutique **vérifiée avant publication** (visite / appel vidéo), produits & stocks (saisie, import, **code-barres propre à l'enseigne**, photos), **comptes employés**, préparation des commandes, validation des retraits, chat client, coordonnées de versement.
 
-**Super-admin (propriétaire)** — **vérifie les enseignes** (visite sur place / appel vidéo) avant publication, paramètre les **tarifs de livraison, la commission et le plafond de livraisons/jour**, gère les comptes, et suit les **KPIs** (volume, commission encaissée).
+**Employé (staff)** — créé par son gérant, rattaché à **une seule enseigne** : produits et stocks via **scanner de code-barres** (caméra sur mobile, douchette sur web), commandes, retraits, chat.
 
-## État d'avancement
-
-- ✅ **Backend complet** : modèle de données, 4 rôles, cycle de commande, commission & répartition, proximité PostGIS, plafond livreur, vérification des enseignes **et des livreurs**, paiement KkiaPay **+ paiement à la livraison (espèces)**, **remboursements**, **versements (soldes enseignes/livreurs)**, **avis/notes**, **photos produits & enseignes**, temps réel, **notifications Web Push**, super-admin. Dockerisé, **migrations Prisma versionnées**, testé (Jest).
-- ✅ **Frontend branché sur l'API** : parcours client (dont cash et notation), livreur (vérification, gains 30 j, push), manager (commande « prête », photos), super-admin (livreurs, finances : remboursements & versements).
+**Super-admin** — dashboard d'actions contextuelles (vérifications enseignes **et livreurs**, remboursements, codes bloqués, **livraisons figées**), supervision des commandes, finances (soldes avec **délai de litige**, versements sur compte Mobile Money vérifié), blocage définitif / suppression d'enseigne, réglages (tarifs, commission, cash, seuils anti-fraude).
 
 ## Sécurité intégrée
 
-Refresh tokens avec rotation (access token 1 h) · rate limiting (strict sur l'auth) · helmet ·
-code de réception limité à 5 essais · webhook KkiaPay protégé par secret + re-vérification ·
-paiement simulé interdit en production (`NODE_ENV=production`) · healthchecks Docker sur les 3 services.
+- **Auth** : refresh tokens avec rotation (access 1 h), mot de passe oublié par e-mail (jeton 30 min à usage unique), suppression de compte (anonymisation si historique), rate limiting strict sur l'auth, helmet, déverrouillage **biométrique** sur mobile.
+- **Paiements** : webhook KkiaPay protégé par secret + re-vérification de chaque transaction, paiement simulé **interdit en production**, remboursements automatiques + file admin.
+- **Anti-fraude** : période de confiance des livreurs (plafond de valeur, cash restreint), suspension automatique sur livraison figée > 3 h + alerte admin, trace GPS persistée 30 j, remise enseigne→livreur horodatée, délai de versement configurable (fenêtre de litige), code de réception limité à 5 essais.
+- **Infra** : migrations Prisma versionnées (baseline auto), healthchecks Docker sur les 3 services, `/api/health`, Sentry optionnel.
 
-## Déploiement sur le VPS (Traefik mutualisé, comme familyfe)
+## Déploiement sur le VPS (Traefik mutualisé)
 
 ```bash
 git clone <repo> bjdrive && cd bjdrive
@@ -51,20 +51,19 @@ cp backend/.env.example .env            # puis renseignez les valeurs de product
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-- DNS : ajoutez un enregistrement **A `bjdrive.dkpsolution.tech`** vers l'IP du VPS
-  (Traefik obtient le certificat Let's Encrypt automatiquement).
-- La surcouche [docker-compose.prod.yml](docker-compose.prod.yml) rattache l'API
-  (`/api`, `/socket.io`, `/uploads`) et la PWA (racine) au réseau `traefik-proxy`
-  existant ; la base n'est accessible qu'en local (`127.0.0.1:5433`).
-- Nécessite Docker Compose ≥ 2.24 (tag `!override` sur les ports).
-- Mise à jour : `git pull` puis la même commande `up -d --build`.
+- DNS : enregistrement **A `bjdrive.dkpsolution.tech`** → IP du VPS (certificat Let's Encrypt automatique).
+- La surcouche [docker-compose.prod.yml](docker-compose.prod.yml) route l'API (`/api`, `/socket.io`, `/uploads`)
+  et la PWA (racine) via le réseau `traefik-proxy` existant ; la base reste locale (`127.0.0.1:5433`).
+- Nécessite Docker Compose ≥ 2.24. Mise à jour : `git pull` puis la même commande `up -d --build`
+  (les migrations s'appliquent seules au démarrage).
 
 ## Checklist avant mise en production
 
-1. Dans `.env` (racine) : `NODE_ENV=production`, `JWT_SECRET` fort, `SUPERADMIN_PASSWORD` fort.
-2. Renseigner les clés **KkiaPay** + `KKIAPAY_WEBHOOK_SECRET` (URL du webhook : `/api/payments/webhook?token=<secret>`).
-3. Régénérer les clés **VAPID** (`npx web-push generate-vapid-keys`) — celles du `.env` local sont de dev.
-4. Servir l'API et le web en **HTTPS** (reverse proxy) — requis pour le GPS et les notifications push.
-5. Adapter `CORS_ORIGIN` et les variables `VITE_*` au domaine réel.
+1. `.env` : `NODE_ENV=production`, `JWT_SECRET` fort (`openssl rand -hex 48`), `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD`.
+2. Clés **KkiaPay** (sandbox puis live) + `KKIAPAY_WEBHOOK_SECRET` — URL du webhook dans le dashboard :
+   `https://<domaine>/api/payments/webhook` (le « secret hash » du dashboard = votre `KKIAPAY_WEBHOOK_SECRET`).
+3. **SMTP** (`SMTP_HOST/PORT/USER/PASS/FROM`) pour l'envoi réel des factures et des liens de réinitialisation.
+4. Clés **VAPID** de production (`npx web-push generate-vapid-keys`) pour les notifications push.
+5. HTTPS obligatoire (géré par Traefik) — requis pour le GPS, le push et la caméra du scanner.
 
-Voir **`backend/README.md`** pour la liste des endpoints et les détails techniques.
+Détails techniques et endpoints : **`backend/README.md`** · Application mobile : **`mobile/README.md`**.
