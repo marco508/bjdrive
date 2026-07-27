@@ -32,6 +32,14 @@ enum VerificationMethod {
   VIDEO // appel vidéo
 }
 
+// Statut de vérification d'un livreur (symétrique aux enseignes : bloqué tant que non vérifié).
+enum DriverStatus {
+  PENDING // en attente de vérification par le super-admin
+  VERIFIED // vérifié → peut voir et accepter des livraisons
+  REJECTED
+  SUSPENDED
+}
+
 enum OrderStatus {
   PENDING_PAYMENT // créée, en attente de paiement
   AWAITING_DRIVER // payée → en attente de prise en charge par un livreur
@@ -45,6 +53,7 @@ enum PaymentStatus {
   PENDING
   PAID
   FAILED
+  REFUND_PENDING // commande payée annulée → remboursement à traiter
   REFUNDED
 }
 
@@ -54,6 +63,19 @@ enum PaymentProvider {
   MOOV_MONEY
   BANK_CARD
   BANK_ACCOUNT
+  CASH // paiement à la livraison (espèces collectées par le livreur)
+}
+
+// Mode de paiement choisi par le client à la commande.
+enum PaymentMethod {
+  KKIAPAY
+  CASH
+}
+
+// Cible d'un avis laissé par le client après livraison.
+enum ReviewTarget {
+  DRIVER
+  STORE
 }
 
 // ------------------------------- Utilisateurs -------------------------------
@@ -73,6 +95,36 @@ model User {
   deliveries      Delivery[]       @relation("DeliveryDriver")
   paymentAccounts PaymentAccount[]
   verifications   Store[]          @relation("StoreVerifier")
+  refreshTokens     RefreshToken[]
+  pushSubscriptions PushSubscription[]
+  payouts           Payout[]         @relation("PayoutBeneficiary")
+  reviews           Review[]         @relation("ReviewAuthor")
+}
+
+// Jeton de rafraîchissement (rotation : un nouveau jeton révoque l'ancien).
+model RefreshToken {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique // sha256 du jeton — le jeton en clair n'est jamais stocké
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Abonnement Web Push (notifications même application fermée).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Coordonnées de versement (le manager/livreur reçoit ses paiements ici)
@@ -111,6 +163,7 @@ model Store {
   categoryId  String
   emoji       String?
   color       String?
+  imageUrl    String? // photo de la boutique (upload local /uploads)
   address     String
   // Localisation sur la carte (lat/lng ; colonne géographique PostGIS ajoutée par apply-postgis)
   lat         Float
@@ -143,6 +196,7 @@ model Product {
   description String?
   category    String? // rayon interne (Épicerie, Frais...)
   emoji       String?
+  imageUrl    String? // photo du produit (upload local /uploads)
   price       Int // FCFA
   stock       Int      @default(0)
   unit        String   @default("pièce")
@@ -176,8 +230,13 @@ model Order {
   originLat Float?
   originLng Float?
 
+  // Mode de paiement : KkiaPay (payé d'avance) ou espèces à la livraison
+  paymentMethod PaymentMethod @default(KKIAPAY)
+
   // Code de réception (type Uber Eats) remis au livreur à la livraison
   receptionCode String
+  // Tentatives de validation du code par le livreur (anti force brute, remis à zéro par l'admin)
+  codeAttempts  Int    @default(0)
 
   // Créneau de livraison proposé une fois la commande récupérée
   scheduledDeliveryAt DateTime?
@@ -192,6 +251,7 @@ model Order {
   history  OrderStatusHistory[]
   delivery Delivery?
   payment  Payment?
+  reviews  Review[]
 
   @@index([status])
   @@index([clientId])
@@ -222,6 +282,7 @@ model OrderStore {
   storeId      String
   subtotal     Int // total des produits de cette enseigne
   payoutAmount Int // reversement à l'enseigne (= subtotal)
+  readyAt      DateTime? // l'enseigne a préparé/confirmé sa part de la commande
   pickedUpAt   DateTime? // horodatage du retrait au magasin
 
   @@unique([orderId, storeId])
@@ -265,6 +326,14 @@ model DriverProfile {
   currentLng     Float?
   lastLocationAt DateTime?
   createdAt      DateTime  @default(now())
+
+  // Vérification par le super-admin (pièce d'identité, entretien...) — bloquant.
+  status            DriverStatus @default(PENDING)
+  verificationNotes String?
+  verifiedById      String?
+  verifiedAt        DateTime?
+
+  @@index([status])
 }
 
 // ------------------------------- Paiements ----------------------------------
@@ -282,8 +351,45 @@ model Payment {
   driverAmount   Int // → livreur
   platformAmount Int // → plateforme (commission 10%)
 
+  // Remboursement (commande payée puis annulée)
+  refundRef  String? // référence du remboursement KkiaPay (ou manuel)
+  refundedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Versement effectif à une enseigne ou un livreur, enregistré par le super-admin.
+// Le solde dû est calculé à partir des commandes livrées moins les versements.
+model Payout {
+  id          String          @id @default(cuid())
+  user        User            @relation("PayoutBeneficiary", fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  amount      Int // FCFA (peut être négatif : collecte d'espèces due par un livreur)
+  provider    PaymentProvider @default(MTN_MOMO)
+  reference   String? // référence de la transaction Mobile Money / virement
+  note        String?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+}
+
+// Avis laissé par le client après livraison (sur le livreur et/ou chaque enseigne).
+model Review {
+  id         String       @id @default(cuid())
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  author     User         @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  targetType ReviewTarget
+  targetId   String // id du livreur (User) ou de l'enseigne (Store)
+  rating     Int // 1 à 5
+  comment    String?
+  createdAt  DateTime     @default(now())
+
+  @@unique([orderId, targetType, targetId])
+  @@index([targetType, targetId])
 }
 
 // ------------------------- Configuration application ------------------------
@@ -293,6 +399,7 @@ model AppConfig {
   perKmFee           Int     @default(100)
   commissionRate     Float   @default(0.10)
   maxDeliveriesPerDay Int    @default(5)
+  allowCashOnDelivery Boolean @default(true) // autoriser le paiement à la livraison
   currency           String  @default("XOF")
   updatedAt          DateTime @updatedAt
 }

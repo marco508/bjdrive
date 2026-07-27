@@ -17,7 +17,9 @@ services:
       POSTGRES_PASSWORD: bjdrive
       POSTGRES_DB: bjdrive
     ports:
-      - "5432:5432"
+      # 5433 côté hôte pour éviter le conflit avec d'autres Postgres locaux ;
+      # l'API joint la base via le réseau interne (db:5432) quoi qu'il arrive.
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -33,9 +35,13 @@ services:
       db:
         condition: service_healthy
     environment:
+      # NODE_ENV=production active les garde-fous (paiement simulé interdit...).
+      NODE_ENV: "${NODE_ENV:-development}"
       DATABASE_URL: "postgresql://bjdrive:bjdrive@db:5432/bjdrive?schema=public"
       JWT_SECRET: "${JWT_SECRET:-dev-secret-change-me}"
-      JWT_EXPIRES_IN: "7d"
+      # Access token court : le frontend se renouvelle seul via /auth/refresh.
+      JWT_EXPIRES_IN: "${JWT_EXPIRES_IN:-1h}"
+      REFRESH_EXPIRES_DAYS: "${REFRESH_EXPIRES_DAYS:-30}"
       SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@bjdrive.bj}"
       SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-changez-moi}"
       SUPERADMIN_NAME: "Super Admin"
@@ -47,10 +53,21 @@ services:
       KKIAPAY_PRIVATE_KEY: "${KKIAPAY_PRIVATE_KEY:-}"
       KKIAPAY_SECRET: "${KKIAPAY_SECRET:-}"
       KKIAPAY_SANDBOX: "${KKIAPAY_SANDBOX:-true}"
+      # Secret partagé exigé sur le webhook KkiaPay (header x-webhook-secret ou ?token=)
+      KKIAPAY_WEBHOOK_SECRET: "${KKIAPAY_WEBHOOK_SECRET:-}"
+      # Notifications Web Push — générez les clés : npx web-push generate-vapid-keys
+      VAPID_PUBLIC_KEY: "${VAPID_PUBLIC_KEY:-}"
+      VAPID_PRIVATE_KEY: "${VAPID_PRIVATE_KEY:-}"
+      VAPID_SUBJECT: "${VAPID_SUBJECT:-mailto:admin@bjdrive.bj}"
+      # Supervision des erreurs (facultatif)
+      SENTRY_DSN: "${SENTRY_DSN:-}"
       PORT: "3007"
       CORS_ORIGIN: "http://localhost:5173,http://localhost:8080"
     ports:
       - "3007:3007"
+    volumes:
+      # Photos produits/enseignes uploadées
+      - uploads:/app/uploads
     restart: unless-stopped
 
   web:
@@ -70,3 +87,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
