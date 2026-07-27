@@ -1,0 +1,77 @@
+# docker-compose.prod.yml — surcouche PRODUCTION BjDrive.
+# Sous-domaine dédié : bjdrive.dkpsolution.tech (PWA à la racine, API sous /api,
+# Socket.IO sous /socket.io, photos sous /uploads), intégré au Traefik DÉJÀ
+# présent sur le VPS (le même que familyfe/yomu).
+#
+# Lancer AVEC le compose de base :
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Variables .env (à côté de ce fichier) — voir backend/.env.example :
+#   NODE_ENV=production   JWT_SECRET (openssl rand -hex 48)   SUPERADMIN_PASSWORD
+#   KKIAPAY_PUBLIC_KEY / KKIAPAY_PRIVATE_KEY / KKIAPAY_SECRET / KKIAPAY_WEBHOOK_SECRET
+#   KKIAPAY_SANDBOX=true|false   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (web-push)
+#   SITE_ADDRESS         hôte servi (défaut: bjdrive.dkpsolution.tech)
+#   TRAEFIK_NETWORK      réseau Docker externe de Traefik (défaut: traefik-proxy)
+#   TRAEFIK_ENTRYPOINT   entrypoint HTTPS de Traefik (défaut: websecure)
+#   TRAEFIK_CERTRESOLVER certresolver Let's Encrypt (défaut: letsencrypt)
+services:
+
+  # ─── Base de données : accessible uniquement en local sur le VPS ───────────
+  db:
+    ports: !override
+      - "127.0.0.1:5433:5432"
+
+  # ─── API NestJS : /api + /socket.io (temps réel) + /uploads (photos) ───────
+  api:
+    environment:
+      NODE_ENV: production
+      CORS_ORIGIN: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}"
+    # Pas de port publié sur l'hôte : Traefik joint le conteneur via son réseau.
+    ports: !override
+      - "127.0.0.1:3007:3007"
+    networks:
+      - default
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik-proxy}"
+      # L'API garde son préfixe /api (pas de StripPrefix : Nest le sert déjà).
+      # Socket.IO et les photos uploadées passent aussi par l'API.
+      - "traefik.http.routers.bjdrive-api.rule=Host(`${SITE_ADDRESS:-bjdrive.dkpsolution.tech}`) && (PathPrefix(`/api`) || PathPrefix(`/socket.io`) || PathPrefix(`/uploads`))"
+      - "traefik.http.routers.bjdrive-api.priority=100"
+      - "traefik.http.routers.bjdrive-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.bjdrive-api.tls=true"
+      - "traefik.http.routers.bjdrive-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.bjdrive-api.loadbalancer.server.port=3007"
+
+  # ─── PWA (nginx), servie à la racine du sous-domaine ───────────────────────
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Le bundle Vite est figé au build : URLs absolues du sous-domaine.
+        VITE_API_URL: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}/api"
+        VITE_SOCKET_URL: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}"
+        VITE_KKIAPAY_PUBLIC_KEY: "${KKIAPAY_PUBLIC_KEY:-}"
+        VITE_GOOGLE_MAPS_API_KEY: "${VITE_GOOGLE_MAPS_API_KEY:-}"
+    ports: !override
+      - "127.0.0.1:8081:80"
+    networks:
+      - default
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik-proxy}"
+      # Tout le reste du sous-domaine (priorité basse) → PWA.
+      - "traefik.http.routers.bjdrive-web.rule=Host(`${SITE_ADDRESS:-bjdrive.dkpsolution.tech}`)"
+      - "traefik.http.routers.bjdrive-web.priority=1"
+      - "traefik.http.routers.bjdrive-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.bjdrive-web.tls=true"
+      - "traefik.http.routers.bjdrive-web.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.bjdrive-web.loadbalancer.server.port=80"
+
+# Réseau externe géré par la stack Traefik du VPS (le même que familyfe).
+networks:
+  traefik_net:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik-proxy}

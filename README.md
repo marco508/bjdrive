@@ -43,6 +43,22 @@ Refresh tokens avec rotation (access token 1 h) · rate limiting (strict sur l'a
 code de réception limité à 5 essais · webhook KkiaPay protégé par secret + re-vérification ·
 paiement simulé interdit en production (`NODE_ENV=production`) · healthchecks Docker sur les 3 services.
 
+## Déploiement sur le VPS (Traefik mutualisé, comme familyfe)
+
+```bash
+git clone <repo> bjdrive && cd bjdrive
+cp backend/.env.example .env            # puis renseignez les valeurs de production
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+- DNS : ajoutez un enregistrement **A `bjdrive.dkpsolution.tech`** vers l'IP du VPS
+  (Traefik obtient le certificat Let's Encrypt automatiquement).
+- La surcouche [docker-compose.prod.yml](docker-compose.prod.yml) rattache l'API
+  (`/api`, `/socket.io`, `/uploads`) et la PWA (racine) au réseau `traefik-proxy`
+  existant ; la base n'est accessible qu'en local (`127.0.0.1:5433`).
+- Nécessite Docker Compose ≥ 2.24 (tag `!override` sur les ports).
+- Mise à jour : `git pull` puis la même commande `up -d --build`.
+
 ## Checklist avant mise en production
 
 1. Dans `.env` (racine) : `NODE_ENV=production`, `JWT_SECRET` fort, `SUPERADMIN_PASSWORD` fort.
