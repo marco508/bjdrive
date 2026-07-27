@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "BjDrive",
+    "slug": "bjdrive",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "bjdrive",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#075c2c"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Votre position sert à trouver les enseignes proches et à suivre la livraison."
+      }
+    },
+    "android": {
+      "package": "tech.dkpsolution.bjdrive",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "plugins": ["expo-router", "expo-location"],
+    "extra": {
+      "apiUrl": "https://bjdrive.dkpsolution.tech/api",
+      "socketUrl": "https://bjdrive.dkpsolution.tech",
+      "webUrl": "https://bjdrive.dkpsolution.tech"
+    }
+  }
+}
