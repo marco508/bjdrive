@@ -1,22 +1,59 @@
 // Client HTTP unique de l'application (web ET, à terme, mobile).
 // - Ajoute le JWT automatiquement
+// - Renouvelle la session automatiquement (refresh token avec rotation)
 // - Économe en données : petit cache local (stale-while-revalidate) pour le catalogue
 import { API_URL } from '../config.js'
 
 const TOKEN_KEY = 'bjdrive_token'
+const REFRESH_KEY = 'bjdrive_refresh'
 let token = (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) || null
+let refreshToken = (typeof localStorage !== 'undefined' && localStorage.getItem(REFRESH_KEY)) || null
 
-export function setToken(t) {
+export function setToken(t, r) {
   token = t || null
+  if (r !== undefined) refreshToken = r || null
   if (typeof localStorage === 'undefined') return
   if (t) localStorage.setItem(TOKEN_KEY, t)
   else localStorage.removeItem(TOKEN_KEY)
+  if (r !== undefined) {
+    if (r) localStorage.setItem(REFRESH_KEY, r)
+    else localStorage.removeItem(REFRESH_KEY)
+  }
 }
 export function getToken() {
   return token
 }
+export function getRefreshToken() {
+  return refreshToken
+}
 
-async function req(method, path, body, { auth = true } = {}) {
+// Renouvellement de session partagé (une seule requête refresh à la fois).
+let refreshing = null
+async function tryRefresh() {
+  if (!refreshToken) return false
+  if (!refreshing) {
+    refreshing = (async () => {
+      try {
+        const res = await fetch(API_URL + '/auth/refresh', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        })
+        if (!res.ok) return false
+        const data = await res.json()
+        setToken(data.accessToken, data.refreshToken)
+        return true
+      } catch {
+        return false
+      } finally {
+        setTimeout(() => (refreshing = null), 0)
+      }
+    })()
+  }
+  return refreshing
+}
+
+async function req(method, path, body, { auth = true, retry = true } = {}) {
   const headers = {}
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (auth && token) headers.Authorization = `Bearer ${token}`
@@ -25,6 +62,12 @@ async function req(method, path, body, { auth = true } = {}) {
     res = await fetch(API_URL + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined })
   } catch {
     throw new Error('Connexion au serveur impossible. Vérifiez votre réseau.')
+  }
+  // Access token expiré → on tente un refresh puis on rejoue la requête une fois.
+  if (res.status === 401 && auth && retry && refreshToken && !path.startsWith('/auth/')) {
+    const ok = await tryRefresh()
+    if (ok) return req(method, path, body, { auth, retry: false })
+    setToken(null, null)
   }
   const text = await res.text()
   const data = text ? safeJson(text) : null
@@ -46,6 +89,29 @@ const get = (p, o) => req('GET', p, undefined, o)
 const post = (p, b, o) => req('POST', p, b, o)
 const patch = (p, b, o) => req('PATCH', p, b, o)
 const del = (p, o) => req('DELETE', p, undefined, o)
+const delBody = (p, b, o) => req('DELETE', p, b, o)
+
+// Envoi multipart (photos) — pas de JSON ici.
+async function upload(path, file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  let res = await fetch(API_URL + path, { method: 'POST', headers, body: fd })
+  if (res.status === 401 && refreshToken) {
+    const ok = await tryRefresh()
+    if (ok) {
+      headers.Authorization = `Bearer ${token}`
+      res = await fetch(API_URL + path, { method: 'POST', headers, body: fd })
+    }
+  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const msg = data?.message
+    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg || `Erreur ${res.status}`)
+  }
+  return data
+}
 
 // --- petit cache local pour limiter la consommation de données ---
 function cacheGet(key, maxAgeMs) {
@@ -71,6 +137,7 @@ export const api = {
   // ---------- Auth ----------
   register: (dto) => post('/auth/register', dto, { auth: false }),
   login: (dto) => post('/auth/login', dto, { auth: false }),
+  logoutServer: () => (refreshToken ? post('/auth/logout', { refreshToken }, { auth: false }).catch(() => {}) : Promise.resolve()),
 
   // ---------- Utilisateur ----------
   me: () => get('/users/me'),
@@ -78,6 +145,25 @@ export const api = {
   paymentAccounts: () => get('/users/me/payment-accounts'),
   addPaymentAccount: (dto) => post('/users/me/payment-accounts', dto),
   removePaymentAccount: (id) => del(`/users/me/payment-accounts/${id}`),
+
+  // ---------- Config publique (tarifs affichés, cash autorisé...) ----------
+  publicConfig: async () => {
+    const cached = cacheGet('publicConfig', 3600e3)
+    if (cached && !cached.stale) return cached.data
+    try {
+      const data = await get('/config/public', { auth: false })
+      cacheSet('publicConfig', data)
+      return data
+    } catch (e) {
+      if (cached) return cached.data
+      throw e
+    }
+  },
+
+  // ---------- Notifications push ----------
+  vapidPublicKey: () => get('/notifications/vapid-public-key', { auth: false }),
+  pushSubscribe: (sub) => post('/notifications/subscribe', sub),
+  pushUnsubscribe: (endpoint) => delBody('/notifications/subscribe', { endpoint }),
 
   // ---------- Catalogue (public) ----------
   categories: async () => {
@@ -107,11 +193,14 @@ export const api = {
   myStore: (id) => get(`/stores/mine/${id}`),
   createStore: (dto) => post('/stores', dto),
   updateStore: (id, dto) => patch(`/stores/${id}`, dto),
+  uploadStoreImage: (id, file) => upload(`/stores/${id}/image`, file),
   addProduct: (storeId, dto) => post(`/stores/${storeId}/products`, dto),
   importProducts: (storeId, products) => post(`/stores/${storeId}/products/import`, { products }),
   updateProduct: (id, dto) => patch(`/products/${id}`, dto),
+  uploadProductImage: (id, file) => upload(`/products/${id}/image`, file),
   removeProduct: (id) => del(`/products/${id}`),
   storeOrders: (storeId) => get(`/orders/store/${storeId}`),
+  markStoreReady: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/ready`),
 
   // ---------- Commandes (client) ----------
   createOrder: (dto) => post('/orders', dto),
@@ -119,6 +208,7 @@ export const api = {
   order: (id) => get(`/orders/${id}`),
   rescheduleOrder: (id, iso) => patch(`/orders/${id}/schedule`, { scheduledDeliveryAt: iso }),
   cancelOrder: (id) => post(`/orders/${id}/cancel`),
+  reviewOrder: (id, dto) => post(`/orders/${id}/review`, dto),
 
   // ---------- Paiement ----------
   initiatePayment: (orderId) => post(`/payments/${orderId}/initiate`),
@@ -127,6 +217,7 @@ export const api = {
   // ---------- Livreur ----------
   availableDeliveries: (lat, lng, radius) => get(`/deliveries/available?lat=${lat}&lng=${lng}${radius ? '&radius=' + radius : ''}`),
   myDeliveries: () => get('/deliveries/mine'),
+  myEarnings: (days = 30) => get(`/deliveries/earnings?days=${days}`),
   acceptDelivery: (orderId) => post(`/deliveries/accept/${orderId}`),
   pickupStore: (orderId, storeId) => post(`/deliveries/${orderId}/pickup/${storeId}`),
   completeDelivery: (orderId, code) => post(`/deliveries/${orderId}/complete`, { code }),
@@ -137,6 +228,16 @@ export const api = {
   adminOverview: () => get('/admin/overview'),
   adminStores: (status) => get(`/admin/stores${status ? '?status=' + status : ''}`),
   adminVerifyStore: (id, dto) => post(`/admin/stores/${id}/verify`, dto),
+  adminDrivers: (status) => get(`/admin/drivers${status ? '?status=' + status : ''}`),
+  adminVerifyDriver: (userId, dto) => post(`/admin/drivers/${userId}/verify`, dto),
+  adminSuspendDriver: (userId, suspended) => patch(`/admin/drivers/${userId}/suspend`, { suspended }),
+  adminRefunds: () => get('/admin/refunds'),
+  adminRetryRefund: (orderId) => post(`/admin/refunds/${orderId}/retry`),
+  adminMarkRefunded: (orderId, reference) => post(`/admin/refunds/${orderId}/mark-refunded`, { reference }),
+  adminBalances: () => get('/admin/balances'),
+  adminPayouts: (userId) => get(`/admin/payouts${userId ? '?userId=' + userId : ''}`),
+  adminCreatePayout: (dto) => post('/admin/payouts', dto),
+  adminResetCode: (orderId) => post(`/admin/orders/${orderId}/reset-code`),
   adminConfig: () => get('/admin/config'),
   adminUpdateConfig: (dto) => patch('/admin/config', dto),
   adminUsers: (role) => get(`/admin/users${role ? '?role=' + role : ''}`),

@@ -81,8 +81,15 @@ export default function Track() {
             <p style={{ margin: '0 0 6px', fontWeight: 700 }}>Votre code de réception</p>
             <div style={{ fontSize: 40, fontWeight: 800, letterSpacing: 6 }}>{order.receptionCode}</div>
             <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.9 }}>Communiquez ce code au livreur à la remise.</p>
+            {order.paymentMethod === 'CASH' && (
+              <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700 }}>
+                💵 À préparer en espèces : {formatFCFA(order.total)}
+              </p>
+            )}
           </div>
         )}
+
+        {status === 'DELIVERED' && <ReviewCard order={order} onDone={reload} showToast={showToast} />}
 
         {/* Enseignes de la tournée + état des retraits */}
         {stores.length > 0 && status !== 'CANCELLED' && (
@@ -150,6 +157,12 @@ export default function Track() {
           <div className="card" style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 36 }}>❌</div>
             <p style={{ marginBottom: 0 }}>Cette commande a été annulée.</p>
+            {order.paymentStatus === 'REFUND_PENDING' && (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>💸 Remboursement en cours de traitement.</p>
+            )}
+            {order.paymentStatus === 'REFUNDED' && (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>✅ Vous avez été remboursé.</p>
+            )}
           </div>
         )}
 
@@ -193,6 +206,79 @@ function Row({ label, value }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 14 }}>
       <span className="muted">{label}</span>
       <span>{value}</span>
+    </div>
+  )
+}
+
+// Sélecteur d'étoiles (1 à 5).
+function Stars({ value, onChange }) {
+  return (
+    <div style={{ fontSize: 26, letterSpacing: 4, cursor: 'pointer', userSelect: 'none' }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} onClick={() => onChange(n)} style={{ opacity: n <= value ? 1 : 0.25 }}>⭐</span>
+      ))}
+    </div>
+  )
+}
+
+// Avis après livraison : note du livreur + de chaque enseigne.
+function ReviewCard({ order, onDone, showToast }) {
+  const already = (order.reviews || []).length > 0
+  const [driverRating, setDriverRating] = useState(0)
+  const [storeRatings, setStoreRatings] = useState({})
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (already) {
+    return (
+      <div className="card" style={{ textAlign: 'center' }}>
+        <p style={{ margin: 0 }}>🙏 Merci pour votre avis !</p>
+      </div>
+    )
+  }
+
+  async function send() {
+    setBusy(true)
+    try {
+      await api.reviewOrder(order.id, {
+        driverRating: driverRating || undefined,
+        driverComment: comment || undefined,
+        stores: Object.entries(storeRatings)
+          .filter(([, r]) => r > 0)
+          .map(([storeId, rating]) => ({ storeId, rating })),
+      })
+      showToast('Merci pour votre avis ⭐')
+      onDone()
+    } catch (e) {
+      showToast('Erreur : ' + e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const nothing = !driverRating && !Object.values(storeRatings).some((r) => r > 0)
+  return (
+    <div className="card">
+      <p className="section-title" style={{ marginTop: 0 }}>Notez votre expérience</p>
+      {order.delivery?.driver && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>🛵 Livreur · {order.delivery.driver.name}</div>
+          <Stars value={driverRating} onChange={setDriverRating} />
+        </div>
+      )}
+      {(order.stores || []).map((os) => (
+        <div key={os.storeId} style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 14, marginBottom: 4 }}>{os.store?.emoji} {os.store?.name}</div>
+          <Stars value={storeRatings[os.storeId] || 0} onChange={(n) => setStoreRatings((p) => ({ ...p, [os.storeId]: n }))} />
+        </div>
+      ))}
+      <label className="field">
+        <span>Commentaire (optionnel)</span>
+        <textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Un mot sur la livraison ?" />
+      </label>
+      <button className="btn" onClick={send} disabled={busy || nothing}>
+        {busy ? 'Envoi…' : 'Envoyer mon avis'}
+      </button>
     </div>
   )
 }

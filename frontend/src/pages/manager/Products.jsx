@@ -5,6 +5,7 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox } from '../../components/ui.jsx'
 import { formatFCFA } from '../../lib/geo.js'
+import { imageSrc } from '../../config.js'
 
 const CATEGORIES = ['Épicerie', 'Frais', 'Surgelés', 'Boissons', 'Boulangerie', 'Hygiène', 'Autres']
 const EMOJIS = ['🛍️', '🍚', '🛢️', '🥫', '🍗', '💧', '🥛', '🥖', '🥚', '🧀', '🧃', '🍝', '🧼', '🌾', '🌶️', '🐟', '🍬', '🥤', '🧻']
@@ -165,6 +166,20 @@ export default function ManagerProducts() {
     }
   }
 
+  async function uploadPhoto(p, file) {
+    if (!file) return
+    setBusy(true)
+    try {
+      await api.uploadProductImage(p.id, file)
+      showToast('Photo ajoutée 📷')
+      await productsQ.reload()
+    } catch (err) {
+      showToast(err.message || 'Envoi de la photo impossible.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -258,13 +273,24 @@ export default function ManagerProducts() {
           <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
             {products.map((p) => (
               <div className="product" key={p.id}>
-                <div className="thumb">{p.emoji}</div>
+                <div className="thumb" style={{ overflow: 'hidden' }}>
+                  {p.imageUrl ? (
+                    <img src={imageSrc(p.imageUrl)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                  ) : (
+                    p.emoji
+                  )}
+                </div>
                 <div className="info">
                   <h4>{p.name}</h4>
                   <div className="price">
                     {formatFCFA(p.price)} <span className="muted" style={{ fontWeight: 400 }}>/ {p.unit}</span>
                   </div>
                   <div className={`stock ${p.stock <= 5 ? 'low' : ''}`}>Stock : {p.stock}</div>
+                  <label className="muted" style={{ fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+                    📷 {p.imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
+                      onChange={(e) => uploadPhoto(p, e.target.files?.[0])} />
+                  </label>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                   <div className="stepper">

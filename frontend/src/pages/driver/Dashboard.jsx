@@ -4,6 +4,8 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox } from '../../components/ui.jsx'
 import { formatFCFA, getCurrentPosition, estimateEta, haversine } from '../../lib/geo.js'
+import { onNewOrders } from '../../services/realtime.js'
+import { pushSupported, getPushStatus, enablePush } from '../../lib/push.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 
 export default function DriverDashboard() {
@@ -11,6 +13,11 @@ export default function DriverDashboard() {
 
   const [pos, setPos] = useState(null)
   const [sharing, setSharing] = useState(false)
+  const [pushStatus, setPushStatus] = useState('unsupported')
+
+  useEffect(() => {
+    getPushStatus().then(setPushStatus).catch(() => {})
+  }, [])
 
   const watchId = useRef(null)
   const lastSent = useRef(null) // { pos:{lat,lng}, time:number }
@@ -35,13 +42,33 @@ export default function DriverDashboard() {
 
   const myState = useAsync(api.myDeliveries, [])
   const md = myState.data
+  const verified = md?.verificationStatus === 'VERIFIED'
   const avState = useAsync(
-    () => (pos ? api.availableDeliveries(pos.lat, pos.lng) : Promise.resolve([])),
-    [pos]
+    () => (pos && (md ? verified : true) ? api.availableDeliveries(pos.lat, pos.lng) : Promise.resolve([])),
+    [pos, verified, !!md]
   )
+  const earnState = useAsync(() => api.myEarnings(30), [])
 
   async function reloadAll() {
-    await Promise.all([myState.reload(), avState.reload()])
+    await Promise.all([myState.reload(), avState.reload(), earnState.reload()])
+  }
+
+  // Nouvelle commande diffusée en temps réel → on rafraîchit la liste.
+  useEffect(() => {
+    if (!verified) return
+    const unsub = onNewOrders(() => avState.reload())
+    return () => unsub()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verified])
+
+  async function activatePush() {
+    try {
+      await enablePush()
+      setPushStatus('subscribed')
+      showToast('Notifications activées 🔔')
+    } catch (e) {
+      showToast(e.message)
+    }
   }
 
   // Envoi throttlé de la position au serveur (économie de data).
@@ -140,6 +167,37 @@ export default function DriverDashboard() {
         right={<button className="pill" onClick={logout}>Quitter</button>}
       />
       <div className="screen">
+        {/* Vérification du compte livreur */}
+        {md && !verified && (
+          <div className="card" style={{ borderLeft: '4px solid var(--yellow, #e6a700)' }}>
+            <strong>
+              {md.verificationStatus === 'PENDING' && '🕒 Compte en attente de vérification'}
+              {md.verificationStatus === 'REJECTED' && '❌ Vérification refusée'}
+              {md.verificationStatus === 'SUSPENDED' && '⛔ Compte suspendu'}
+            </strong>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              {md.verificationStatus === 'PENDING'
+                ? "L'équipe BjDrive doit valider votre profil avant que vous puissiez accepter des livraisons. Renseignez votre téléphone dans votre profil pour être contacté."
+                : 'Contactez le support BjDrive pour plus d’informations.'}
+            </p>
+          </div>
+        )}
+
+        {/* Notifications push */}
+        {pushSupported() && ['ready', 'denied'].includes(pushStatus) && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🔔</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14 }}>Soyez prévenu des courses proches, même app fermée.</div>
+            </div>
+            {pushStatus === 'ready' ? (
+              <button className="btn small outline" onClick={activatePush}>Activer</button>
+            ) : (
+              <span className="muted" style={{ fontSize: 12 }}>Notifications bloquées</span>
+            )}
+          </div>
+        )}
+
         {/* Résumé du jour */}
         {myState.loading && !md && <Loader label="Chargement de vos livraisons…" />}
         <ErrorBox error={myState.error} onRetry={myState.reload} />
@@ -164,6 +222,11 @@ export default function DriverDashboard() {
                 <div className="l">Gains confirmés</div>
               </div>
             </div>
+            {md.rating != null && (
+              <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                ⭐ {Number(md.rating).toFixed(1)}/5 ({md.ratingCount} avis)
+              </div>
+            )}
             <div className="divider" />
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="muted" style={{ fontSize: 13 }}>
@@ -231,8 +294,13 @@ export default function DriverDashboard() {
                   <strong>{a.stores?.length > 1 ? `${a.stores.length} enseignes` : a.stores?.[0]?.name}</strong>
                   <span className="badge yellow">Gain {formatFCFA(a.earnings)}</span>
                 </div>
+                {a.paymentMethod === 'CASH' && (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    💵 Paiement espèces — encaisser {formatFCFA(a.cashToCollect)} auprès du client
+                  </div>
+                )}
                 <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                  {(a.stores || []).map((s) => s.name).join(' · ')}
+                  {(a.stores || []).map((s) => `${s.name}${s.readyAt ? ' ✅' : ''}`).join(' · ')}
                 </div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>📍 {a.destAddress}</div>
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
@@ -253,6 +321,34 @@ export default function DriverDashboard() {
                 )}
               </div>
             ))}
+          </>
+        )}
+
+        {/* Historique des gains (30 jours) */}
+        {earnState.data && earnState.data.totalDeliveries > 0 && (
+          <>
+            <p className="section-title">Mes gains · 30 derniers jours</p>
+            <div className="card">
+              <div className="kpi-grid">
+                <div className="kpi">
+                  <div className="n">{formatFCFA(earnState.data.totalEarnings)}</div>
+                  <div className="l">Gains totaux</div>
+                </div>
+                <div className="kpi">
+                  <div className="n">{earnState.data.totalDeliveries}</div>
+                  <div className="l">Livraisons</div>
+                </div>
+              </div>
+              <div className="divider" />
+              <ul className="list-reset">
+                {[...earnState.data.days].reverse().slice(0, 10).map((day) => (
+                  <li key={day.date} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                    <span className="muted">{new Date(day.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · {day.count} course{day.count > 1 ? 's' : ''}</span>
+                    <span>{formatFCFA(day.earnings)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
       </div>
@@ -284,8 +380,17 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
     <div className="card">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <strong>{stores.length > 1 ? `Tournée · ${stores.length} enseignes` : stores[0]?.store?.name}</strong>
-        <span className="badge yellow">À encaisser {formatFCFA(order.total)}</span>
+        {order.paymentMethod === 'CASH' ? (
+          <span className="badge yellow">💵 Encaisser {formatFCFA(order.total)}</span>
+        ) : (
+          <span className="badge yellow">Gain {formatFCFA(order.deliveryFee)}</span>
+        )}
       </div>
+      {order.paymentMethod === 'CASH' && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Commande payée en espèces à la remise — vous gardez {formatFCFA(order.deliveryFee)} de frais de livraison.
+        </div>
+      )}
       <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>📍 {order.destAddress}</div>
       {order.destNote && (
         <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>📝 {order.destNote}</div>
@@ -302,6 +407,7 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ fontSize: 14 }}>{os.store?.emoji} {os.store?.name}</strong>
+                    {os.readyAt && !os.pickedUpAt && <span className="badge" style={{ marginLeft: 6 }}>📦 Prête</span>}
                     <div className="muted" style={{ fontSize: 12 }}>{os.store?.address}</div>
                   </div>
                   {os.pickedUpAt ? (

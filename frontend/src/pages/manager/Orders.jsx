@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox, StatusBadge } from '../../components/ui.jsx'
@@ -7,11 +9,26 @@ import { formatFCFA } from '../../lib/geo.js'
 
 export default function ManagerOrders() {
   const nav = useNavigate()
+  const { showToast } = useApp()
+  const [busyId, setBusyId] = useState(null)
   const storesQ = useAsync(api.myStores)
   const store = storesQ.data?.[0] || null
 
   const ordersQ = useAsync(() => (store ? api.storeOrders(store.id) : Promise.resolve([])), [store?.id])
   const orders = [...(ordersQ.data || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+  async function markReady(orderId) {
+    setBusyId(orderId)
+    try {
+      await api.markStoreReady(orderId, store.id)
+      showToast('Commande marquée prête 📦 — le livreur est prévenu.')
+      ordersQ.reload()
+    } catch (e) {
+      showToast('Erreur : ' + e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   if (storesQ.loading) {
     return (
@@ -85,6 +102,17 @@ export default function ManagerOrders() {
                   {formatFCFA(o.part?.payoutAmount ?? (o.items || []).reduce((s, i) => s + i.price * i.qty, 0))}
                 </strong>
               </div>
+
+              {/* Préparation : le manager signale que la commande est prête à être retirée */}
+              {['AWAITING_DRIVER', 'AWAITING_PICKUP'].includes(o.status) && !o.part?.pickedUpAt && (
+                o.part?.readyAt ? (
+                  <div className="badge" style={{ marginTop: 8 }}>📦 Prête — en attente du livreur</div>
+                ) : (
+                  <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
+                    📦 Marquer comme prête
+                  </button>
+                )
+              )}
             </div>
           )
         })}

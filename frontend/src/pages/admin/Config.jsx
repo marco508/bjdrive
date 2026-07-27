@@ -13,6 +13,7 @@ export default function AdminConfig() {
     perKmFee: '',
     commissionPercent: '',
     maxDeliveriesPerDay: '',
+    allowCashOnDelivery: true,
   })
   const [saving, setSaving] = useState(false)
 
@@ -23,6 +24,7 @@ export default function AdminConfig() {
         perKmFee: data.perKmFee ?? '',
         commissionPercent: data.commissionRate != null ? data.commissionRate * 100 : '',
         maxDeliveriesPerDay: data.maxDeliveriesPerDay ?? '',
+        allowCashOnDelivery: data.allowCashOnDelivery ?? true,
       })
     }
   }, [data])
@@ -39,6 +41,7 @@ export default function AdminConfig() {
         perKmFee: Number(form.perKmFee),
         commissionRate: Number(form.commissionPercent) / 100,
         maxDeliveriesPerDay: Number(form.maxDeliveriesPerDay),
+        allowCashOnDelivery: !!form.allowCashOnDelivery,
       })
       showToast('Réglages enregistrés')
       reload()
@@ -96,6 +99,15 @@ export default function AdminConfig() {
                 value={form.maxDeliveriesPerDay}
                 onChange={set('maxDeliveriesPerDay')}
               />
+            </label>
+
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '4px 0 8px' }}>
+              <input
+                type="checkbox"
+                checked={!!form.allowCashOnDelivery}
+                onChange={(e) => setForm((f) => ({ ...f, allowCashOnDelivery: e.target.checked }))}
+              />
+              <span>💵 Autoriser le paiement en espèces à la livraison</span>
             </label>
 
             <div className="divider" />

@@ -5,6 +5,7 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox } from '../../components/ui.jsx'
 import { formatFCFA } from '../../lib/geo.js'
+import { imageSrc } from '../../config.js'
 
 export default function StorePage() {
   const { id } = useParams()
@@ -48,6 +49,23 @@ export default function StorePage() {
         right={store.category ? <span className="pill">{store.category.emoji} {store.category.name}</span> : null}
       />
       <div className="screen">
+        {(store.imageUrl || store.rating != null) && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {store.imageUrl && (
+              <img src={imageSrc(store.imageUrl)} alt={store.name}
+                style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 12 }} />
+            )}
+            <div>
+              <strong>{store.name}</strong>
+              {store.rating != null && (
+                <div className="muted" style={{ fontSize: 13 }}>
+                  ⭐ {Number(store.rating).toFixed(1)}/5 ({store.ratingCount} avis)
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {(store.products || []).length === 0 && (
           <Empty icon="📭" title="Rayons vides" text="Cette enseigne n'a pas encore ajouté de produits." />
         )}
@@ -61,7 +79,14 @@ export default function StorePage() {
                 const out = p.stock <= 0
                 return (
                   <div className="product" key={p.id}>
-                    <div className="thumb">{p.emoji || '🛍️'}</div>
+                    <div className="thumb" style={{ overflow: 'hidden' }}>
+                      {p.imageUrl ? (
+                        <img src={imageSrc(p.imageUrl)} alt={p.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                      ) : (
+                        p.emoji || '🛍️'
+                      )}
+                    </div>
                     <div className="info">
                       <h4>{p.name}</h4>
                       <div className="price">

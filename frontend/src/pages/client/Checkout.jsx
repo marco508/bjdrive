@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
@@ -17,6 +17,12 @@ export default function Checkout() {
   const [locating, setLocating] = useState(false)
   const [geoError, setGeoError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('KKIAPAY')
+  const [allowCash, setAllowCash] = useState(false)
+
+  useEffect(() => {
+    api.publicConfig().then((c) => setAllowCash(!!c.allowCashOnDelivery)).catch(() => {})
+  }, [])
 
   if (cartItems.length === 0) {
     return (
@@ -50,9 +56,15 @@ export default function Checkout() {
         destLng: pos.lng,
         destAddress: address,
         destNote: note,
+        paymentMethod,
       })
       clearCart()
-      nav(`/client/pay/${order.id}`)
+      if (paymentMethod === 'CASH') {
+        showToast('Commande envoyée — vous paierez le livreur à la réception.')
+        nav(`/client/track/${order.id}`, { replace: true })
+      } else {
+        nav(`/client/pay/${order.id}`)
+      }
     } catch (e) {
       showToast('Erreur : ' + e.message)
     } finally {
@@ -101,6 +113,20 @@ export default function Checkout() {
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+229 ..." />
           </label>
         </div>
+
+        {allowCash && (
+          <div className="card" style={{ marginTop: 14 }}>
+            <p className="section-title" style={{ marginTop: 0 }}>Mode de paiement</p>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
+              <input type="radio" name="paymethod" checked={paymentMethod === 'KKIAPAY'} onChange={() => setPaymentMethod('KKIAPAY')} />
+              <span>💳 Payer maintenant (Mobile Money / Moov / carte)</span>
+            </label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
+              <input type="radio" name="paymethod" checked={paymentMethod === 'CASH'} onChange={() => setPaymentMethod('CASH')} />
+              <span>💵 Payer en espèces à la livraison</span>
+            </label>
+          </div>
+        )}
 
         <div className="card">
           {cartStores.length > 1 && (

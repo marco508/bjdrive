@@ -10,6 +10,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Notifications push : handlers ajoutés au service worker généré.
+      workbox: { importScripts: ['sw-push.js'] },
       manifest: {
         name: 'Zémi Market',
         short_name: 'Zémi',

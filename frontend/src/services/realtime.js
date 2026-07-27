@@ -36,3 +36,17 @@ export function trackOrder(orderId, { onUpdate, onDriver } = {}) {
     s.off('driverLocation', handleDriver)
   }
 }
+
+// Diffusion « nouvelle commande disponible » pour le dashboard livreur.
+export function onNewOrders(handler) {
+  const s = ensure()
+  const sub = () => s.emit('subscribeDrivers')
+  if (s.connected) sub()
+  s.on('connect', sub)
+  s.on('newOrderAvailable', handler)
+  return () => {
+    s.emit('unsubscribeDrivers')
+    s.off('connect', sub)
+    s.off('newOrderAvailable', handler)
+  }
+}

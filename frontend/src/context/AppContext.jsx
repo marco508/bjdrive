@@ -39,23 +39,24 @@ export function AppProvider({ children }) {
   }, [])
 
   const login = useCallback(async (dto) => {
-    const { accessToken, user: u } = await api.login(dto)
-    setToken(accessToken)
+    const { accessToken, refreshToken, user: u } = await api.login(dto)
+    setToken(accessToken, refreshToken)
     const me = await api.me()
     setUser(me)
     return u
   }, [])
 
   const register = useCallback(async (dto) => {
-    const { accessToken, user: u } = await api.register(dto)
-    setToken(accessToken)
+    const { accessToken, refreshToken, user: u } = await api.register(dto)
+    setToken(accessToken, refreshToken)
     const me = await api.me()
     setUser(me)
     return u
   }, [])
 
   const logout = useCallback(() => {
-    setToken(null)
+    api.logoutServer() // révoque la session côté serveur (best effort)
+    setToken(null, null)
     setUser(null)
     setCart({ items: {} })
   }, [])

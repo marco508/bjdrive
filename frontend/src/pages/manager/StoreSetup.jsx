@@ -5,6 +5,7 @@ import { useAsync } from '../../components/useApi.js'
 import { TopBar, Loader, ErrorBox } from '../../components/ui.jsx'
 import { STORE_STATUS_LABELS } from '../../services/constants.js'
 import { getCurrentPosition } from '../../lib/geo.js'
+import { imageSrc } from '../../config.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 
 const EMOJIS = ['🛒', '🏬', '🥫', '🏪', '🛍️', '💊', '🥖', '🧺']
@@ -119,6 +120,32 @@ export default function StoreSetup() {
         {justCreated && (
           <div className="card" style={{ background: '#fff7d6', color: 'var(--green-dark)', fontSize: 14 }}>
             ⏳ Votre enseigne est en attente de vérification — elle sera visible des clients une fois validée par l’équipe BjDrive.
+          </div>
+        )}
+
+        {existing && (
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {existing.imageUrl ? (
+              <img src={imageSrc(existing.imageUrl)} alt={existing.name}
+                style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10 }} />
+            ) : (
+              <div className="store-logo" style={{ width: 64, height: 64, fontSize: 30 }}>{existing.emoji || '🏪'}</div>
+            )}
+            <label className="btn outline small" style={{ cursor: 'pointer' }}>
+              📷 {existing.imageUrl ? 'Changer la photo' : 'Ajouter une photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    await api.uploadStoreImage(existing.id, file)
+                    showToast('Photo de l’enseigne mise à jour 📷')
+                    reload()
+                  } catch (err) {
+                    showToast(err.message || 'Envoi impossible.')
+                  }
+                }} />
+            </label>
           </div>
         )}
 

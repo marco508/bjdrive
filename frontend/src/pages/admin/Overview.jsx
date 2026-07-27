@@ -65,6 +65,30 @@ export default function AdminOverview() {
               </div>
             )}
 
+            {data.pendingDrivers > 0 && (
+              <div className="card" style={{ background: '#fff7d6', color: 'var(--green-dark)' }}>
+                <p className="section-title" style={{ marginTop: 0 }}>🛵 Livreurs à vérifier</p>
+                <p style={{ margin: '0 0 12px', fontSize: 14 }}>
+                  {data.pendingDrivers} livreur(s) en attente de vérification.
+                </p>
+                <button className="btn yellow" onClick={() => nav('/admin/drivers')}>
+                  Vérifier {data.pendingDrivers} livreur(s)
+                </button>
+              </div>
+            )}
+
+            {data.refundsPending > 0 && (
+              <div className="card" style={{ background: '#ffe3e3', color: 'var(--red, #b00020)' }}>
+                <p className="section-title" style={{ marginTop: 0 }}>💸 Remboursements en attente</p>
+                <p style={{ margin: '0 0 12px', fontSize: 14 }}>
+                  {data.refundsPending} commande(s) annulée(s) à rembourser.
+                </p>
+                <button className="btn" onClick={() => nav('/admin/finance')}>
+                  Traiter les remboursements
+                </button>
+              </div>
+            )}
+
             <p className="section-title">Finances</p>
             <div className="kpi-grid">
               <div className="kpi">

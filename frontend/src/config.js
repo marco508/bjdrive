@@ -3,3 +3,12 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3007/ap
 export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3007'
 export const KKIAPAY_PUBLIC_KEY = import.meta.env.VITE_KKIAPAY_PUBLIC_KEY || ''
 export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+
+// Origine de l'API sans le préfixe /api — sert à résoudre les URLs d'images (/uploads/...)
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '')
+
+// Résout une URL d'image renvoyée par l'API (chemin relatif /uploads/...)
+export function imageSrc(url) {
+  if (!url) return null
+  return url.startsWith('http') ? url : API_ORIGIN + url
+}
