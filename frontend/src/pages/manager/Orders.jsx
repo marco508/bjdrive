@@ -83,7 +83,7 @@ export default function ManagerOrders() {
       <>
         <TopBar title="Commandes" />
         <div className="screen">
-          <Empty icon="🏪" title="Créez votre enseigne" text="Vos commandes entrantes apparaîtront ici.">
+          <Empty iconName="storefront" title="Créez votre enseigne" text="Vos commandes entrantes apparaîtront ici.">
             <button className="btn" style={{ maxWidth: 240, margin: '14px auto 0' }} onClick={() => nav('/manager/store')}>
               Créer mon enseigne
             </button>
@@ -101,7 +101,7 @@ export default function ManagerOrders() {
         <ErrorBox error={ordersQ.error} onRetry={ordersQ.reload} />
 
         {!ordersQ.loading && !ordersQ.error && orders.length === 0 && (
-          <Empty icon="🧾" title="Aucune commande" text="Les nouvelles commandes des clients s’afficheront ici." />
+          <Empty iconName="receipt" title="Aucune commande" text="Les nouvelles commandes des clients s’afficheront ici." />
         )}
 
         {orders.map((o) => {

@@ -39,7 +39,7 @@ export default function Search() {
         {res.loading && <Loader label="Recherche…" />}
         <ErrorBox error={res.error} onRetry={res.reload} />
         {!res.loading && q.length >= 2 && offers.length === 0 && (
-          <Empty icon="🔍" title="Aucun résultat" text={`Aucun produit « ${q} » dans les enseignes vérifiées.`} />
+          <Empty iconName="search" title="Aucun résultat" text={`Aucun produit « ${q} » dans les enseignes vérifiées.`} />
         )}
         {q.length < 2 && <p className="muted">Saisissez au moins 2 caractères.</p>}
 

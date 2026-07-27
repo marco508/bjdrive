@@ -67,7 +67,7 @@ export default function StorePage() {
         )}
 
         {(store.products || []).length === 0 && (
-          <Empty icon="📭" title="Rayons vides" text="Cette enseigne n'a pas encore ajouté de produits." />
+          <Empty iconName="inventory" title="Rayons vides" text="Cette enseigne n'a pas encore ajouté de produits." />
         )}
 
         {Object.entries(byCategory).map(([cat, items]) => (

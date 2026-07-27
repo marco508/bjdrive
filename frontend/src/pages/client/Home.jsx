@@ -67,7 +67,7 @@ export default function ClientHome() {
         {stores.loading && <Loader />}
         <ErrorBox error={stores.error} onRetry={stores.reload} />
         {!stores.loading && list.length === 0 && (
-          <Empty icon="🏪" title="Aucune enseigne" text="Aucune enseigne vérifiée disponible pour l'instant." />
+          <Empty iconName="storefront" title="Aucune enseigne" text="Aucune enseigne vérifiée disponible pour l'instant." />
         )}
         <div className="grid-cards">
         {list.map((s) => (

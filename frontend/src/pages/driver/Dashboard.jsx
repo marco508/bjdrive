@@ -9,6 +9,7 @@ import { pushSupported, getPushStatus, enablePush } from '../../lib/push.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 import OrderChat from '../../components/OrderChat.jsx'
 import AccountDanger from '../../components/AccountDanger.jsx'
+import Icon from '../../components/Icon.jsx'
 
 export default function DriverDashboard() {
   const { user, logout, showToast } = useApp()
@@ -173,9 +174,9 @@ export default function DriverDashboard() {
         {md && !verified && (
           <div className="card" style={{ borderLeft: '4px solid var(--yellow, #e6a700)' }}>
             <strong>
-              {md.verificationStatus === 'PENDING' && '🕒 Compte en attente de vérification'}
-              {md.verificationStatus === 'REJECTED' && '❌ Vérification refusée'}
-              {md.verificationStatus === 'SUSPENDED' && '⛔ Compte suspendu'}
+              {md.verificationStatus === 'PENDING' && 'Compte en attente de vérification'}
+              {md.verificationStatus === 'REJECTED' && 'Vérification refusée'}
+              {md.verificationStatus === 'SUSPENDED' && 'Compte suspendu'}
             </strong>
             <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
               {md.verificationStatus === 'PENDING'
@@ -188,7 +189,7 @@ export default function DriverDashboard() {
         {/* Niveau de confiance (nouveau livreur) */}
         {md && verified && md.trust && !md.trust.trusted && (
           <div className="card" style={{ borderLeft: '4px solid var(--green)' }}>
-            <strong>🌱 Livreur en période de confiance</strong>
+            <strong>Livreur en période de confiance</strong>
             <p className="muted" style={{ fontSize: 13, margin: '4px 0 0' }}>
               {md.trust.delivered}/{md.trust.threshold} livraisons réussies. En attendant, vous voyez les commandes
               prépayées jusqu'à {formatFCFA(md.trust.maxOrderTotal)} — les commandes en espèces et les gros paniers
@@ -200,7 +201,7 @@ export default function DriverDashboard() {
         {/* Notifications push */}
         {pushSupported() && ['ready', 'denied'].includes(pushStatus) && (
           <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🔔</span>
+            <Icon name='notifications' size={22} color='var(--green-dark)' />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14 }}>Soyez prévenu des courses proches, même app fermée.</div>
             </div>
@@ -244,13 +245,13 @@ export default function DriverDashboard() {
             <div className="divider" />
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="muted" style={{ fontSize: 13 }}>
-                {sharing ? '📡 Position partagée en direct' : 'Partage de position désactivé'}
+                {sharing ? 'Position partagée en direct' : 'Partage de position désactivé'}
               </span>
               <button
                 className={`btn small ${sharing ? 'danger' : 'outline'}`}
                 onClick={toggleSharing}
               >
-                {sharing ? 'Arrêter le partage' : '📡 Partager ma position'}
+                {sharing ? 'Arrêter le partage' : 'Partager ma position'}
               </button>
             </div>
             {hasInDelivery && !sharing && (
@@ -284,7 +285,7 @@ export default function DriverDashboard() {
         {!pos ? (
           <div className="card">
             <p style={{ marginTop: 0 }}>Activez votre position pour voir les commandes proches.</p>
-            <button className="btn" onClick={enableLocation}>📍 Activer ma position</button>
+            <button className="btn" onClick={enableLocation}>Activer ma position</button>
           </div>
         ) : (
           <>
@@ -297,7 +298,7 @@ export default function DriverDashboard() {
             )}
             {!avState.loading && !avState.error && (avState.data?.length || 0) === 0 && (
               <Empty
-                icon="🛵"
+                iconName="moped"
                 title="Rien pour l'instant"
                 text="Les commandes payées proches de vous apparaîtront ici."
               />
@@ -310,7 +311,7 @@ export default function DriverDashboard() {
                 </div>
                 {a.paymentMethod === 'CASH' && (
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                    💵 Paiement espèces — encaisser {formatFCFA(a.cashToCollect)} auprès du client
+                    Paiement espèces — encaisser {formatFCFA(a.cashToCollect)} auprès du client
                   </div>
                 )}
                 <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -425,7 +426,7 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ fontSize: 14 }}>{os.store?.emoji} {os.store?.name}</strong>
-                    {os.readyAt && !os.pickedUpAt && <span className="badge" style={{ marginLeft: 6 }}>📦 Prête</span>}
+                    {os.readyAt && !os.pickedUpAt && <span className="badge" style={{ marginLeft: 6 }}>Prête</span>}
                     <div className="muted" style={{ fontSize: 12 }}>{os.store?.address}</div>
                   </div>
                   {os.pickedUpAt ? (
@@ -470,7 +471,7 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
               disabled={busy || !code}
               onClick={submit}
             >
-              ✅ Valider la livraison
+              Valider la livraison
             </button>
           </div>
         </>

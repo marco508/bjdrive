@@ -38,9 +38,9 @@ export default function StaffDashboard() {
         right={<button className="pill" onClick={logout}>Quitter</button>}
       />
       <div className="screen">
-        <div className="row" style={{ marginBottom: 14 }}>
-          <button className={`btn small ${tab === 'orders' ? '' : 'outline'}`} onClick={() => setTab('orders')}>Commandes</button>
-          <button className={`btn small ${tab === 'products' ? '' : 'outline'}`} onClick={() => setTab('products')}>Produits & scan</button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          <button className={`chip ${tab === 'orders' ? 'active' : ''}`} onClick={() => setTab('orders')}>Commandes</button>
+          <button className={`chip ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Produits & scan</button>
         </div>
 
         {tab === 'orders' && <OrdersTab store={store} ordersQ={ordersQ} showToast={showToast} />}
@@ -104,7 +104,7 @@ function OrdersTab({ store, ordersQ, showToast }) {
       {ordersQ.loading && <Loader />}
       <ErrorBox error={ordersQ.error} onRetry={ordersQ.reload} />
       {!ordersQ.loading && orders.length === 0 && (
-        <Empty icon="🧾" title="Aucune commande" text="Les commandes clients s'afficheront ici." />
+        <Empty iconName="receipt" title="Aucune commande" text="Les commandes clients s'afficheront ici." />
       )}
       {orders.map((o) => {
         const itemCount = (o.items || []).reduce((s, i) => s + i.qty, 0)
@@ -280,7 +280,7 @@ function ProductsTab({ store, reload, showToast }) {
       </div>
 
       <p className="section-title">Stocks ({products.length} produits)</p>
-      {products.length === 0 && <Empty icon="🏷️" title="Aucun produit" text="Ajoutez le premier produit via le code-barres ci-dessus." />}
+      {products.length === 0 && <Empty iconName="barcode" title="Aucun produit" text="Ajoutez le premier produit via le code-barres ci-dessus." />}
       {products.length > 0 && (
         <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
           {products.map((p) => (

@@ -51,7 +51,7 @@ export default function ManagerProducts() {
       <>
         <TopBar title="Produits & stocks" />
         <div className="screen">
-          <Empty icon="🏪" title="Créez d’abord votre enseigne" text="Vous pourrez ensuite gérer vos produits et stocks.">
+          <Empty iconName="storefront" title="Créez d’abord votre enseigne" text="Vous pourrez ensuite gérer vos produits et stocks.">
             <button className="btn" style={{ maxWidth: 240, margin: '14px auto 0' }} onClick={() => nav('/manager/store')}>
               Créer mon enseigne
             </button>
@@ -272,7 +272,7 @@ export default function ManagerProducts() {
         <ErrorBox error={productsQ.error} onRetry={productsQ.reload} />
 
         {!productsQ.loading && !productsQ.error && products.length === 0 && (
-          <Empty icon="🏷️" title="Aucun produit" text="Ajoutez vos premiers articles pour ouvrir vos rayons." />
+          <Empty iconName="barcode" title="Aucun produit" text="Ajoutez vos premiers articles pour ouvrir vos rayons." />
         )}
 
         {products.length > 0 && (

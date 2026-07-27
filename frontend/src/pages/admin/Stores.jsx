@@ -125,7 +125,7 @@ export default function AdminStores() {
 
         {!loading && !error && stores.length === 0 && (
           <Empty
-            icon="🏪"
+            iconName="storefront"
             title="Aucune enseigne"
             text="Aucune enseigne pour ce filtre."
           />
@@ -145,7 +145,7 @@ export default function AdminStores() {
                     <span>{s.category?.emoji} {s.category?.name}</span>
                   </div>
                   <div className="meta" style={{ marginTop: 4 }}>
-                    <span>📍 {s.address}</span>
+                    <span>{s.address}</span>
                   </div>
                 </div>
                 <span className={STATUS_BADGE[s.status] || 'badge gray'}>
@@ -157,14 +157,14 @@ export default function AdminStores() {
 
               <div style={{ fontSize: 14 }}>
                 <div><strong>{s.owner?.name}</strong></div>
-                <div className="muted">✉️ {s.owner?.email}</div>
-                <div className="muted">📞 {s.owner?.phone}</div>
+                <div className="muted">{s.owner?.email}</div>
+                <div className="muted">{s.owner?.phone}</div>
                 <div className="muted" style={{ marginTop: 4 }}>
-                  🏷️ {s._count?.products ?? 0} produits
+                  {s._count?.products ?? 0} produits
                 </div>
                 {s.verificationNotes && (
                   <div className="muted" style={{ marginTop: 4 }}>
-                    📝 {s.verificationNotes}
+                    Note : {s.verificationNotes}
                   </div>
                 )}
               </div>

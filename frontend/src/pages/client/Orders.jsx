@@ -17,7 +17,7 @@ export default function ClientOrders() {
         {error && <ErrorBox error={error} onRetry={reload} />}
 
         {!loading && !error && (data || []).length === 0 && (
-          <Empty icon="📦" title="Aucune commande" text="Vos commandes et leur suivi apparaîtront ici.">
+          <Empty iconName="receipt" title="Aucune commande" text="Vos commandes et leur suivi apparaîtront ici.">
             <button className="btn" style={{ maxWidth: 240, margin: '14px auto 0' }} onClick={() => nav('/client')}>
               Commander maintenant
             </button>

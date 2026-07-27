@@ -85,12 +85,12 @@ export default function Checkout() {
         <div className="card">
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
             <input type="radio" name="fulfillment" checked={fulfillment === 'DELIVERY'} onChange={() => setFulfillment('DELIVERY')} />
-            <span>🛵 Me faire livrer à domicile</span>
+            <span>Me faire livrer à domicile</span>
           </label>
           <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0', opacity: canPickup ? 1 : 0.45 }}>
             <input type="radio" name="fulfillment" disabled={!canPickup} checked={isPickup} onChange={() => setFulfillment('PICKUP')} style={{ marginTop: 3 }} />
             <span>
-              🏪 Passer chercher sur place (gratuit, sans frais de livraison)
+              Passer chercher sur place (gratuit, sans frais de livraison)
               {!canPickup && (
                 <span className="muted" style={{ display: 'block', fontSize: 12 }}>
                   Disponible pour un panier d'une seule enseigne.
@@ -103,7 +103,7 @@ export default function Checkout() {
         {isPickup ? (
           <div className="card" style={{ background: 'var(--green-soft)' }}>
             <p style={{ margin: 0, fontSize: 14 }}>
-              🏪 Vous retirerez votre commande chez <strong>{cartStores[0]?.name}</strong> — {cartStores[0]?.address}.
+              Vous retirerez votre commande chez <strong>{cartStores[0]?.name}</strong> — {cartStores[0]?.address}.
               Un code de réception vous sera donné : présentez-le à l'enseigne pour récupérer vos courses.
             </p>
           </div>
@@ -117,7 +117,7 @@ export default function Checkout() {
               Nous avons besoin de votre position réelle pour vous livrer et calculer le tarif selon la distance.
             </p>
             <button className="btn" onClick={locate} disabled={locating}>
-              {locating ? 'Localisation…' : '📍 Utiliser ma position'}
+              {locating ? 'Localisation…' : 'Utiliser ma position'}
             </button>
             {geoError && <p style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{geoError}</p>}
           </div>
@@ -152,11 +152,11 @@ export default function Checkout() {
             <p className="section-title" style={{ marginTop: 0 }}>Mode de paiement</p>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
               <input type="radio" name="paymethod" checked={paymentMethod === 'KKIAPAY'} onChange={() => setPaymentMethod('KKIAPAY')} />
-              <span>💳 Payer maintenant (Mobile Money / Moov / carte)</span>
+              <span>Payer maintenant (Mobile Money / Moov / carte)</span>
             </label>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
               <input type="radio" name="paymethod" checked={paymentMethod === 'CASH'} onChange={() => setPaymentMethod('CASH')} />
-              <span>💵 Payer en espèces {isPickup ? 'sur place au retrait' : 'à la livraison'}</span>
+              <span>Payer en espèces {isPickup ? 'sur place au retrait' : 'à la livraison'}</span>
             </label>
           </div>
         )}

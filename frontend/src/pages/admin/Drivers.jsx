@@ -54,9 +54,9 @@ export default function AdminDrivers() {
     <>
       <TopBar title="Livreurs" subtitle="Vérification des comptes" right={<button className="pill" onClick={logout}>Quitter</button>} />
       <div className="screen">
-        <div className="row" style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {FILTERS.map((f) => (
-            <button key={f.key} className={`btn small ${filter === f.key ? '' : 'outline'}`} onClick={() => setFilter(f.key)}>
+            <button key={f.key} className={`chip ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
               {f.label}
             </button>
           ))}
@@ -65,7 +65,7 @@ export default function AdminDrivers() {
         {loading && <Loader />}
         <ErrorBox error={error} onRetry={reload} />
         {!loading && !error && (data || []).length === 0 && (
-          <Empty icon="🛵" title="Aucun livreur" text="Les comptes livreurs apparaîtront ici." />
+          <Empty iconName="moped" title="Aucun livreur" text="Les comptes livreurs apparaîtront ici." />
         )}
 
         {(data || []).map((p) => (
@@ -74,16 +74,16 @@ export default function AdminDrivers() {
               <div>
                 <strong>{p.user?.name}</strong>
                 <div className="muted" style={{ fontSize: 13 }}>{p.user?.email}</div>
-                {p.user?.phone && <div className="muted" style={{ fontSize: 13 }}>📞 {p.user.phone}</div>}
+                {p.user?.phone && <div className="muted" style={{ fontSize: 13 }}>{p.user.phone}</div>}
                 <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                  🛵 {p.vehicle} · inscrit le {new Date(p.user?.createdAt || p.createdAt).toLocaleDateString('fr-FR')}
+                  {p.vehicle} · inscrit le {new Date(p.user?.createdAt || p.createdAt).toLocaleDateString('fr-FR')}
                 </div>
               </div>
               <span className="badge gray">{STATUS_LABELS[p.status] || p.status}</span>
             </div>
 
             {p.verificationNotes && (
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>📝 {p.verificationNotes}</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Note : {p.verificationNotes}</div>
             )}
 
             {p.status === 'PENDING' || p.status === 'REJECTED' ? (

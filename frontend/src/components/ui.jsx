@@ -79,10 +79,13 @@ export const AdminTabs = () => (
   />
 )
 
-export function Empty({ icon, title, text, children }) {
+// État vide : icône Material dans une pastille (iconName), avec repli emoji (icon).
+export function Empty({ icon, iconName, title, text, children }) {
   return (
     <div className="center-empty">
-      <div className="big">{icon}</div>
+      <div className="empty-disc">
+        {iconName ? <Icon name={iconName} size={34} color="var(--green)" /> : <span className="big">{icon}</span>}
+      </div>
       <h3 style={{ margin: '0 0 6px' }}>{title}</h3>
       {text && <p className="muted" style={{ marginTop: 0 }}>{text}</p>}
       {children}

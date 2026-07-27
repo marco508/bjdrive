@@ -39,9 +39,9 @@ export default function AdminOrders() {
     <>
       <TopBar title="Commandes" subtitle="Supervision" right={<button className="pill" onClick={logout}>Quitter</button>} />
       <div className="screen">
-        <div className="row" style={{ flexWrap: 'wrap', marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {FILTERS.map((f) => (
-            <button key={f.key} className={`btn small ${filter === f.key ? '' : 'outline'}`} onClick={() => setFilter(f.key)}>
+            <button key={f.key} className={`chip ${filter === f.key ? 'active' : ''}`} onClick={() => setFilter(f.key)}>
               {f.label}
             </button>
           ))}
@@ -50,7 +50,7 @@ export default function AdminOrders() {
         {loading && <Loader />}
         <ErrorBox error={error} onRetry={reload} />
         {!loading && !error && (data || []).length === 0 && (
-          <Empty icon="🧾" title="Aucune commande" text="Rien à superviser pour ce filtre." />
+          <Empty iconName="receipt" title="Aucune commande" text="Rien à superviser pour ce filtre." />
         )}
 
         {(data || []).map((o) => {
@@ -69,21 +69,21 @@ export default function AdminOrders() {
               </div>
 
               <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-                {o.paymentMethod === 'CASH' ? '💵 Espèces à la livraison' : '💳 KkiaPay'}
+                {o.paymentMethod === 'CASH' ? 'Espèces à la livraison' : 'KkiaPay'}
                 {' · '}<strong style={{ color: 'inherit' }}>{formatFCFA(o.total)}</strong>
-                {o.paymentStatus === 'REFUND_PENDING' && ' · 💸 remboursement en attente'}
-                {o.paymentStatus === 'REFUNDED' && ' · ✅ remboursée'}
+                {o.paymentStatus === 'REFUND_PENDING' && ' · remboursement en attente'}
+                {o.paymentStatus === 'REFUNDED' && ' · remboursée'}
               </div>
               {o.delivery?.driver && (
                 <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-                  🛵 {o.delivery.driver.name} {o.delivery.driver.phone ? `· ${o.delivery.driver.phone}` : ''}
+                  {o.delivery.driver.name} {o.delivery.driver.phone ? `· ${o.delivery.driver.phone}` : ''}
                 </div>
               )}
 
               {blocked && (
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontSize: 13, color: 'var(--red, #b00020)', marginBottom: 6 }}>
-                    🔒 Code de réception bloqué ({o.codeAttempts} tentatives) — vérifiez avec le client avant de débloquer.
+                    Code de réception bloqué ({o.codeAttempts} tentatives) — vérifiez avec le client avant de débloquer.
                   </div>
                   <button className="btn small" disabled={busyId === o.id} onClick={() => resetCode(o.id)}>
                     Débloquer le code
@@ -91,7 +91,7 @@ export default function AdminOrders() {
                 </div>
               )}
               {!blocked && o.codeAttempts > 0 && o.status !== 'DELIVERED' && (
-                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>⚠️ {o.codeAttempts} tentative(s) de code erronée(s)</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{o.codeAttempts} tentative(s) de code erronée(s)</div>
               )}
             </div>
           )

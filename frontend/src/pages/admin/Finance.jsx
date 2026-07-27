@@ -71,7 +71,7 @@ export default function AdminFinance() {
         {refundsQ.loading && <Loader />}
         <ErrorBox error={refundsQ.error} onRetry={refundsQ.reload} />
         {!refundsQ.loading && refunds.length === 0 && (
-          <div className="card muted" style={{ fontSize: 14 }}>Aucun remboursement en attente 👍</div>
+          <div className="card muted" style={{ fontSize: 14 }}>Aucun remboursement en attente.</div>
         )}
         {refunds.map((o) => (
           <div key={o.id} className="card">
@@ -111,12 +111,12 @@ export default function AdminFinance() {
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
               Gagné {formatFCFA(r.earned)} · déjà versé {formatFCFA(r.paidOut)}
-              {r.pending > 0 && ` · ⏳ ${formatFCFA(r.pending)} sous délai de litige (${balancesQ.data?.payoutDelayDays} j)`}
+              {r.pending > 0 && ` · ${formatFCFA(r.pending)} sous délai de litige (${balancesQ.data?.payoutDelayDays} j)`}
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
               {r.account
-                ? `💳 Verser sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
-                : '⚠️ Aucun compte de versement renseigné par le gérant.'}
+                ? `Verser sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
+                : 'Aucun compte de versement renseigné par le gérant.'}
             </div>
             {r.available > 0 && (
               <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.available)}>
@@ -141,16 +141,16 @@ export default function AdminFinance() {
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
               Gains en ligne {formatFCFA(r.earningsOnline)} · espèces à reverser {formatFCFA(r.cashOwed)} · déjà réglé {formatFCFA(r.paidOut)}
-              {r.pending > 0 && ` · ⏳ ${formatFCFA(r.pending)} sous délai`}
+              {r.pending > 0 && ` · ${formatFCFA(r.pending)} sous délai`}
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
               {r.account
-                ? `💳 Régler sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
-                : '⚠️ Aucun compte de versement renseigné par le livreur.'}
+                ? `Régler sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
+                : 'Aucun compte de versement renseigné par le livreur.'}
             </div>
             {r.balance < 0 && (
               <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                ⚠️ Le livreur doit déposer {formatFCFA(-r.balance)} (espèces collectées).
+                Le livreur doit déposer {formatFCFA(-r.balance)} (espèces collectées).
               </div>
             )}
             {r.balance !== 0 && (

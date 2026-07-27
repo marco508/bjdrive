@@ -6,6 +6,7 @@ import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox } from '../../components/ui.jsx'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 import OrderChat from '../../components/OrderChat.jsx'
+import Icon from '../../components/Icon.jsx'
 import { trackOrder } from '../../services/realtime.js'
 import { STATUS_LABELS, STATUS_ICON, ORDER_FLOW } from '../../services/constants.js'
 import { formatFCFA, estimateEta } from '../../lib/geo.js'
@@ -34,7 +35,7 @@ export default function Track() {
   if (error || !order) {
     return (
       <><TopBar title="Suivi en temps réel" back />
-        <div className="screen">{error ? <ErrorBox error={error} onRetry={reload} /> : <Empty icon="🔍" title="Commande introuvable" />}</div>
+        <div className="screen">{error ? <ErrorBox error={error} onRetry={reload} /> : <Empty iconName="search" title="Commande introuvable" />}</div>
       </>
     )
   }
@@ -83,7 +84,7 @@ export default function Track() {
         {isPickup && status !== 'CANCELLED' && status !== 'DELIVERED' && (
           <div className="card" style={{ background: 'var(--green-soft)' }}>
             <p style={{ margin: 0, fontSize: 14 }}>
-              🏪 À retirer chez <strong>{stores[0]?.store?.name}</strong> — 📍 {stores[0]?.store?.address}
+              À retirer chez <strong>{stores[0]?.store?.name}</strong> — {stores[0]?.store?.address}
               <br />
               <span className="muted" style={{ fontSize: 13 }}>
                 Présentez votre code de réception à l'enseigne pour récupérer votre commande.
@@ -101,7 +102,7 @@ export default function Track() {
             <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.9 }}>Communiquez ce code au livreur à la remise.</p>
             {order.paymentMethod === 'CASH' && (
               <p style={{ margin: '8px 0 0', fontSize: 13, fontWeight: 700 }}>
-                💵 À préparer en espèces : {formatFCFA(order.total)}
+                À préparer en espèces : {formatFCFA(order.total)}
               </p>
             )}
           </div>
@@ -128,19 +129,19 @@ export default function Track() {
 
         {driver && (
           <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="store-logo" style={{ background: 'var(--green)', width: 48, height: 48, fontSize: 24 }}>🛵</div>
+            <div className="store-logo" style={{ background: 'var(--green)', width: 48, height: 48 }}><Icon name='moped' size={26} color='#fff' /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{driver.name}</strong>
               <div className="muted" style={{ fontSize: 13 }}>{driver.phone}</div>
             </div>
-            <a className="btn ghost small" href={`tel:${driver.phone}`} style={{ textDecoration: 'none' }}>📞 Appeler</a>
+            <a className="btn ghost small" href={`tel:${driver.phone}`} style={{ textDecoration: 'none' }}>Appeler</a>
           </div>
         )}
 
         {status === 'IN_DELIVERY' && order.scheduledDeliveryAt && (
           <div className="card">
             <p style={{ margin: 0 }}>
-              🕒 Livraison prévue vers{' '}
+              Livraison prévue vers{' '}
               <strong>{new Date(order.scheduledDeliveryAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</strong>
             </p>
             {order.scheduleModified ? (
@@ -176,10 +177,10 @@ export default function Track() {
             <div style={{ fontSize: 36 }}>❌</div>
             <p style={{ marginBottom: 0 }}>Cette commande a été annulée.</p>
             {order.paymentStatus === 'REFUND_PENDING' && (
-              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>💸 Remboursement en cours de traitement.</p>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Remboursement en cours de traitement.</p>
             )}
             {order.paymentStatus === 'REFUNDED' && (
-              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>✅ Vous avez été remboursé.</p>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Vous avez été remboursé.</p>
             )}
           </div>
         )}
