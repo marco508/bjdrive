@@ -9,6 +9,7 @@ const FILTERS = [
   { label: 'En attente', value: 'PENDING' },
   { label: 'Vérifiées', value: 'VERIFIED' },
   { label: 'Refusées', value: 'REJECTED' },
+  { label: 'Bloquées', value: 'BANNED' },
   { label: 'Toutes', value: undefined },
 ]
 
@@ -17,6 +18,7 @@ const STATUS_BADGE = {
   VERIFIED: 'badge',
   REJECTED: 'badge red',
   SUSPENDED: 'badge gray',
+  BANNED: 'badge red',
 }
 
 export default function AdminStores() {
@@ -48,6 +50,40 @@ export default function AdminStores() {
     } finally {
       setBusy(null)
     }
+  }
+
+  async function run(storeId, action, okMsg) {
+    setBusy(storeId)
+    try {
+      await action()
+      showToast(okMsg)
+      reload()
+    } catch (e) {
+      showToast(e.message || 'Erreur')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function suspend(s, suspended) {
+    run(s.id, () => api.adminSuspendStore(s.id, suspended), suspended ? 'Enseigne suspendue' : 'Enseigne réactivée ✅')
+  }
+
+  function ban(s) {
+    const ok = window.confirm(
+      `Bloquer DÉFINITIVEMENT « ${s.name} » ?\n\nElle disparaîtra des clients pour toujours et ne pourra plus être réactivée. L'historique de commandes est conservé.`,
+    )
+    if (!ok) return
+    const reason = window.prompt('Motif du blocage (communiqué au gérant, optionnel) :') || undefined
+    run(s.id, () => api.adminBanStore(s.id, reason), 'Enseigne bloquée définitivement ⛔')
+  }
+
+  function remove(s) {
+    const ok = window.confirm(
+      `Supprimer « ${s.name} » et tous ses produits ?\n\nAction irréversible. Refusée automatiquement si l'enseigne a déjà reçu des commandes (utilisez alors le blocage définitif).`,
+    )
+    if (!ok) return
+    run(s.id, () => api.adminDeleteStore(s.id), 'Enseigne supprimée 🗑️')
   }
 
   const stores = data || []
@@ -171,6 +207,30 @@ export default function AdminStores() {
                     </button>
                   </div>
                 </>
+              )}
+
+              {/* Actions de modération (hors file de vérification) */}
+              {s.status !== 'PENDING' && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                  {s.status === 'VERIFIED' && (
+                    <button className="btn outline small" disabled={busy === s.id} onClick={() => suspend(s, true)}>
+                      ⏸️ Suspendre
+                    </button>
+                  )}
+                  {s.status === 'SUSPENDED' && (
+                    <button className="btn outline small" disabled={busy === s.id} onClick={() => suspend(s, false)}>
+                      ▶️ Réactiver
+                    </button>
+                  )}
+                  {s.status !== 'BANNED' && (
+                    <button className="btn danger small" disabled={busy === s.id} onClick={() => ban(s)}>
+                      ⛔ Bloquer définitivement
+                    </button>
+                  )}
+                  <button className="btn danger small" style={{ opacity: 0.85 }} disabled={busy === s.id} onClick={() => remove(s)}>
+                    🗑️ Supprimer
+                  </button>
+                </div>
               )}
             </div>
           ))}

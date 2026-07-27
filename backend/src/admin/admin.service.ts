@@ -47,11 +47,60 @@ export class AdminService {
     return updated
   }
 
-  suspendStore(storeId: string, suspended: boolean) {
+  async suspendStore(storeId: string, suspended: boolean) {
+    const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    if (!store) throw new NotFoundException('Boutique introuvable.')
+    if (store.status === StoreStatus.BANNED) {
+      throw new BadRequestException('Cette enseigne est bloquée définitivement.')
+    }
     return this.prisma.store.update({
       where: { id: storeId },
       data: { status: suspended ? StoreStatus.SUSPENDED : StoreStatus.VERIFIED },
     })
+  }
+
+  // Blocage DÉFINITIF : l'enseigne disparaît des clients pour toujours
+  // (aucune réactivation possible depuis l'interface). L'historique de
+  // commandes et les reversements dus restent intacts.
+  async banStore(storeId: string, reason?: string) {
+    const store = await this.prisma.store.findUnique({ where: { id: storeId } })
+    if (!store) throw new NotFoundException('Boutique introuvable.')
+    const updated = await this.prisma.store.update({
+      where: { id: storeId },
+      data: {
+        status: StoreStatus.BANNED,
+        active: false,
+        verificationNotes: reason ? `[BLOQUÉE] ${reason}` : store.verificationNotes,
+      },
+    })
+    this.notifications.sendToUser(store.ownerId, {
+      title: 'Enseigne bloquée ⛔',
+      body: `${store.name} a été bloquée définitivement par BjDrive.${reason ? ' Motif : ' + reason : ''}`,
+      url: '/manager',
+    })
+    return updated
+  }
+
+  // Suppression : uniquement si l'enseigne n'a AUCUN historique de commandes
+  // (sinon on casserait la comptabilité — utilisez le blocage définitif).
+  async deleteStore(storeId: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      include: { _count: { select: { orderStores: true } } },
+    })
+    if (!store) throw new NotFoundException('Boutique introuvable.')
+    if (store._count.orderStores > 0) {
+      throw new BadRequestException(
+        `Impossible de supprimer : ${store._count.orderStores} commande(s) référencent cette enseigne. Bloquez-la définitivement à la place.`,
+      )
+    }
+    await this.prisma.store.delete({ where: { id: storeId } }) // produits supprimés en cascade
+    this.notifications.sendToUser(store.ownerId, {
+      title: 'Enseigne supprimée',
+      body: `${store.name} a été supprimée par l'équipe BjDrive.`,
+      url: '/manager',
+    })
+    return { ok: true, deleted: store.name }
   }
 
   // -------- Vérification des livreurs --------

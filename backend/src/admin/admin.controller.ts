@@ -33,6 +33,18 @@ export class AdminController {
     return this.admin.suspendStore(id, body?.suspended)
   }
 
+  // Blocage définitif (irréversible depuis l'interface).
+  @Post('stores/:id/ban')
+  ban(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.admin.banStore(id, body?.reason)
+  }
+
+  // Suppression (refusée si l'enseigne a un historique de commandes).
+  @Delete('stores/:id')
+  deleteStore(@Param('id') id: string) {
+    return this.admin.deleteStore(id)
+  }
+
   // -------- Livreurs --------
   @Get('drivers')
   drivers(@Query('status') status?: DriverStatus) {

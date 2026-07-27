@@ -25,4 +25,5 @@ export const STORE_STATUS_LABELS = {
   VERIFIED: 'Vérifiée',
   REJECTED: 'Refusée',
   SUSPENDED: 'Suspendue',
+  BANNED: 'Bloquée définitivement',
 }

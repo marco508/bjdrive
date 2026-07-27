@@ -24,7 +24,8 @@ enum StoreStatus {
   PENDING // en attente de vérification
   VERIFIED // vérifiée → visible des clients
   REJECTED
-  SUSPENDED
+  SUSPENDED // suspension temporaire (réversible)
+  BANNED // bloquée définitivement par le super-admin (irréversible côté interface)
 }
 
 enum VerificationMethod {
