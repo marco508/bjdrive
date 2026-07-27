@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router'
 import { api } from '../../src/api'
 import { onNewOrders } from '../../src/realtime'
 import { useApp } from '../../src/store'
+import ChatBox from '../../src/ChatBox'
+import OnboardingGate from '../../src/OnboardingGate'
 import { Badge, Btn, Card, Empty, ErrorBox, Field, Loader, RowBetween, SectionTitle } from '../../src/ui'
 import { C, formatFCFA } from '../../src/theme'
 
@@ -115,6 +117,7 @@ export default function DriverDashboard() {
       contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => load()} />}
     >
+      <OnboardingGate role="DRIVER" />
       <ErrorBox error={error} onRetry={() => load()} />
       {!md && !error && <Loader label="Chargement de vos livraisons…" />}
 
@@ -275,6 +278,11 @@ function ActiveDelivery({ d, onChanged }) {
           <Btn title="✅ Valider la livraison" disabled={busy || !code} onPress={complete} />
         </View>
       )}
+
+      {/* Discussion avec le client et l'enseigne */}
+      <View style={{ marginTop: 10 }}>
+        <ChatBox orderId={order.id} />
+      </View>
     </Card>
   )
 }

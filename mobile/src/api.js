@@ -114,9 +114,19 @@ export const api = {
   // Commandes (client)
   createOrder: (dto) => post('/orders', dto),
   myOrders: () => get('/orders/mine'),
+  myStats: () => get('/orders/stats/mine'),
   order: (id) => get(`/orders/${id}`),
   cancelOrder: (id) => post(`/orders/${id}/cancel`),
   reviewOrder: (id, dto) => post(`/orders/${id}/review`, dto),
+
+  // Chat de commande (client + enseigne + livreur)
+  orderMessages: (orderId) => get(`/orders/${orderId}/messages`),
+  sendOrderMessage: (orderId, body) => post(`/orders/${orderId}/messages`, { body }),
+
+  // Employé (staff) : enseigne rattachée, scan code-barres, retraits
+  staffMyStore: () => get('/staff/my-store'),
+  findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
+  completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
 
   // Paiement
   initiatePayment: (orderId) => post(`/payments/${orderId}/initiate`),

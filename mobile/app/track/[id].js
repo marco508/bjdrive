@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { api } from '../../src/api'
 import { trackOrder } from '../../src/realtime'
 import { useApp } from '../../src/store'
+import ChatBox from '../../src/ChatBox'
 import { Badge, Btn, Card, ErrorBox, Loader, RowBetween, SectionTitle } from '../../src/ui'
 import { C, ORDER_FLOW, STATUS_ICON, STATUS_LABELS, formatFCFA } from '../../src/theme'
 
@@ -37,6 +38,7 @@ export default function Track() {
   if (!order) return <Loader />
 
   const status = order.status
+  const isPickup = order.fulfillment === 'PICKUP'
   const showCode = status === 'AWAITING_PICKUP' || status === 'IN_DELIVERY'
   const currentIdx = ORDER_FLOW.indexOf(status)
   const driver = order.delivery?.driver
@@ -56,9 +58,22 @@ export default function Track() {
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <Card style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 40 }}>{STATUS_ICON[status]}</Text>
-        <Text style={{ fontWeight: '800', fontSize: 18, marginTop: 4 }}>{STATUS_LABELS[status]}</Text>
+        <Text style={{ fontSize: 40 }}>{isPickup && status === 'AWAITING_PICKUP' ? '🏪' : STATUS_ICON[status]}</Text>
+        <Text style={{ fontWeight: '800', fontSize: 18, marginTop: 4 }}>
+          {isPickup && status === 'AWAITING_PICKUP' ? 'Préparation — à retirer sur place' : STATUS_LABELS[status]}
+        </Text>
       </Card>
+
+      {isPickup && status === 'AWAITING_PICKUP' && (
+        <Card style={{ backgroundColor: C.greenSoft }}>
+          <Text style={{ fontSize: 14 }}>
+            🏪 À retirer chez <Text style={{ fontWeight: '700' }}>{order.stores?.[0]?.store?.name}</Text>
+            {'\n'}📍 {order.stores?.[0]?.store?.address}
+          </Text>
+        </Card>
+      )}
+
+      {status !== 'CANCELLED' && status !== 'PENDING_PAYMENT' && <ChatBox orderId={order.id} />}
 
       {showCode && (
         <Card style={{ backgroundColor: C.green, alignItems: 'center', borderColor: C.green }}>
@@ -132,16 +147,55 @@ export default function Track() {
             <Text>{formatFCFA(it.price * it.qty)}</Text>
           </RowBetween>
         ))}
-        <RowBetween style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 8 }}>
-          <Text style={{ fontWeight: '700' }}>Total (livraison + service inclus)</Text>
-          <Text style={{ fontWeight: '800', fontSize: 18, color: C.greenDark }}>{formatFCFA(order.total)}</Text>
-        </RowBetween>
+        <FeeRows order={order} />
       </Card>
 
       {(status === 'AWAITING_DRIVER' || status === 'AWAITING_PICKUP') && (
         <Btn title="Annuler la commande" variant="danger" onPress={cancel} disabled={busy} />
       )}
     </ScrollView>
+  )
+}
+
+// Sous-total + « Livraison & service » (détail dépliable) + total.
+function FeeRows({ order }) {
+  const [open, setOpen] = useState(false)
+  const fees = order.deliveryFee + order.commission
+  return (
+    <>
+      <RowBetween style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 8 }}>
+        <Text style={{ color: C.muted }}>Sous-total</Text>
+        <Text>{formatFCFA(order.subtotal)}</Text>
+      </RowBetween>
+      {fees > 0 && (
+        <>
+          <RowBetween style={{ paddingVertical: 3 }}>
+            <Pressable onPress={() => setOpen((o) => !o)}>
+              <Text style={{ color: C.muted }}>
+                Livraison & service <Text style={{ color: C.greenDark, fontSize: 12, textDecorationLine: 'underline' }}>{open ? 'masquer' : 'voir le détail'}</Text>
+              </Text>
+            </Pressable>
+            <Text>{formatFCFA(fees)}</Text>
+          </RowBetween>
+          {open && (
+            <View style={{ paddingLeft: 12 }}>
+              <RowBetween style={{ paddingVertical: 2 }}>
+                <Text style={{ color: C.muted, fontSize: 13 }}>· Livraison (distance)</Text>
+                <Text style={{ color: C.muted, fontSize: 13 }}>{formatFCFA(order.deliveryFee)}</Text>
+              </RowBetween>
+              <RowBetween style={{ paddingVertical: 2 }}>
+                <Text style={{ color: C.muted, fontSize: 13 }}>· Frais de service BjDrive</Text>
+                <Text style={{ color: C.muted, fontSize: 13 }}>{formatFCFA(order.commission)}</Text>
+              </RowBetween>
+            </View>
+          )}
+        </>
+      )}
+      <RowBetween style={{ marginTop: 6 }}>
+        <Text style={{ fontWeight: '700' }}>Total</Text>
+        <Text style={{ fontWeight: '800', fontSize: 18, color: C.greenDark }}>{formatFCFA(order.total)}</Text>
+      </RowBetween>
+    </>
   )
 }
 

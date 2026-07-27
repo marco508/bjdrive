@@ -1,7 +1,9 @@
 // Commandes reçues par l'enseigne : préparation et suivi des reversements.
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, FlatList, RefreshControl, Text } from 'react-native'
+import { TextInput, View } from 'react-native'
 import { api } from '../../src/api'
+import ChatBox from '../../src/ChatBox'
 import { Badge, Btn, Card, Empty, ErrorBox, Loader, RowBetween } from '../../src/ui'
 import { C, STATUS_ICON, STATUS_LABELS, formatFCFA } from '../../src/theme'
 
@@ -10,6 +12,7 @@ export default function ManagerOrders() {
   const [orders, setOrders] = useState(null)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [codes, setCodes] = useState({})
 
   const load = useCallback(async () => {
     setError(null)
@@ -34,6 +37,19 @@ export default function ManagerOrders() {
       await load()
     } catch (e) {
       Alert.alert('Erreur', e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function completePickup(orderId) {
+    setBusyId(orderId)
+    try {
+      await api.completePickup(orderId, store.id, (codes[orderId] || '').trim())
+      Alert.alert('✅', 'Commande remise au client !')
+      await load()
+    } catch (e) {
+      Alert.alert('Code refusé', e.message)
     } finally {
       setBusyId(null)
     }
@@ -75,12 +91,35 @@ export default function ManagerOrders() {
             <Text style={{ color: C.muted, fontSize: 13 }}>Votre reversement</Text>
             <Text style={{ fontWeight: '800', color: C.greenDark, fontSize: 16 }}>{formatFCFA(o.part?.payoutAmount ?? 0)}</Text>
           </RowBetween>
+          {o.fulfillment === 'PICKUP' && <Badge tone="yellow">🏪 Retrait sur place par le client</Badge>}
+
           {['AWAITING_DRIVER', 'AWAITING_PICKUP'].includes(o.status) && !o.part?.pickedUpAt &&
             (o.part?.readyAt ? (
-              <Badge>📦 Prête — en attente du livreur</Badge>
+              <Badge>📦 Prête{o.fulfillment !== 'PICKUP' ? ' — en attente du livreur' : ''}</Badge>
             ) : (
               <Btn title="📦 Marquer comme prête" variant="outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => markReady(o.id)} />
             ))}
+
+          {o.fulfillment === 'PICKUP' && o.status === 'AWAITING_PICKUP' && (
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TextInput
+                placeholder="Code du client"
+                placeholderTextColor={C.muted}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={codes[o.id] || ''}
+                onChangeText={(t) => setCodes((c) => ({ ...c, [o.id]: t.replace(/\D/g, '') }))}
+                style={{ flex: 1, borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 12, color: C.ink }}
+              />
+              <Btn title="✅ Remettre" style={{ paddingHorizontal: 14 }} disabled={busyId === o.id || !(codes[o.id] || '').trim()} onPress={() => completePickup(o.id)} />
+            </View>
+          )}
+
+          {o.status !== 'PENDING_PAYMENT' && o.status !== 'CANCELLED' && (
+            <View style={{ marginTop: 10 }}>
+              <ChatBox orderId={o.id} />
+            </View>
+          )}
         </Card>
       )}
     />

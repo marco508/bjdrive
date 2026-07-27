@@ -19,7 +19,11 @@
       "package": "tech.dkpsolution.bjdrive",
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
-    "plugins": ["expo-router", "expo-location"],
+    "plugins": [
+      "expo-router",
+      "expo-location",
+      ["expo-camera", { "cameraPermission": "La caméra sert à scanner les codes-barres des produits." }]
+    ],
     "extra": {
       "apiUrl": "https://bjdrive.dkpsolution.tech/api",
       "socketUrl": "https://bjdrive.dkpsolution.tech",

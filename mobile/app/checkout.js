@@ -19,6 +19,10 @@ export default function Checkout() {
   const [allowCash, setAllowCash] = useState(false)
   const [busy, setBusy] = useState(false)
   const [locating, setLocating] = useState(false)
+  // Retrait sur place : possible seulement pour un panier mono-enseigne.
+  const [fulfillment, setFulfillment] = useState('DELIVERY')
+  const canPickup = cartStores.length === 1
+  const isPickup = fulfillment === 'PICKUP' && canPickup
 
   useEffect(() => {
     api.publicConfig().then((c) => setAllowCash(!!c.allowCashOnDelivery)).catch(() => {})
@@ -39,16 +43,15 @@ export default function Checkout() {
   }
 
   async function confirm() {
-    if (!pos || cartItems.length === 0) return
+    if ((!isPickup && !pos) || cartItems.length === 0) return
     setBusy(true)
     try {
       const order = await api.createOrder({
         items: cartItems.map(({ product, qty }) => ({ productId: product.id, qty })),
-        destLat: pos.lat,
-        destLng: pos.lng,
-        destAddress: address,
+        ...(isPickup ? {} : { destLat: pos.lat, destLng: pos.lng, destAddress: address }),
         destNote: note,
         paymentMethod,
+        fulfillment: isPickup ? 'PICKUP' : 'DELIVERY',
       })
       clearCart()
       if (paymentMethod === 'CASH') {
@@ -68,6 +71,28 @@ export default function Checkout() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <SectionTitle>Comment récupérer votre commande ?</SectionTitle>
+      <Card>
+        {[
+          { key: 'DELIVERY', label: '🛵 Me faire livrer à domicile', enabled: true },
+          { key: 'PICKUP', label: `🏪 Passer chercher sur place (sans frais de livraison)${canPickup ? '' : ' — panier mono-enseigne uniquement'}`, enabled: canPickup },
+        ].map((opt) => (
+          <Pressable key={opt.key} disabled={!opt.enabled} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: opt.enabled ? 1 : 0.45 }} onPress={() => setFulfillment(opt.key)}>
+            <Text style={{ fontSize: 18 }}>{fulfillment === opt.key && opt.enabled ? '🔘' : '⚪'}</Text>
+            <Text style={{ fontSize: 14, flex: 1 }}>{opt.label}</Text>
+          </Pressable>
+        ))}
+      </Card>
+
+      {isPickup ? (
+        <Card style={{ backgroundColor: C.greenSoft }}>
+          <Text style={{ fontSize: 14 }}>
+            🏪 Vous retirerez votre commande chez <Text style={{ fontWeight: '700' }}>{cartStores[0]?.name}</Text> — {cartStores[0]?.address}.
+            Présentez votre code de réception à l'enseigne.
+          </Text>
+        </Card>
+      ) : (
+        <>
       <SectionTitle>Votre position de livraison</SectionTitle>
       <Card>
         {pos ? (
@@ -82,6 +107,8 @@ export default function Checkout() {
         <Field label="Adresse / repère (quartier, rue…)" value={address} onChangeText={setAddress} placeholder="Ex : quartier, rue, point de repère" />
         <Field label="Instructions au livreur (optionnel)" value={note} onChangeText={setNote} placeholder="Ex : portail bleu, appeler en arrivant" />
       </Card>
+        </>
+      )}
 
       {allowCash && (
         <Card>
@@ -92,7 +119,7 @@ export default function Checkout() {
           ].map((opt) => (
             <Pressable key={opt.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }} onPress={() => setPaymentMethod(opt.key)}>
               <Text style={{ fontSize: 18 }}>{paymentMethod === opt.key ? '🔘' : '⚪'}</Text>
-              <Text style={{ fontSize: 14 }}>{opt.label}</Text>
+              <Text style={{ fontSize: 14 }}>{opt.key === 'CASH' && isPickup ? '💵 Payer en espèces sur place au retrait' : opt.label}</Text>
             </Pressable>
           ))}
         </Card>
@@ -109,11 +136,13 @@ export default function Checkout() {
           <Text style={{ fontWeight: '800', fontSize: 18, color: C.greenDark }}>{formatFCFA(cartSubtotal)}</Text>
         </RowBetween>
         <Text style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>
-          Frais de livraison et de service (selon la distance) ajoutés au total.
+          {isPickup
+            ? 'Retrait sur place : aucun frais de livraison, seuls les frais de service sont ajoutés.'
+            : 'Frais de livraison et de service (selon la distance) ajoutés au total.'}
         </Text>
       </Card>
 
-      <Btn title={busy ? 'Envoi…' : 'Commander'} onPress={confirm} disabled={busy || !pos} />
+      <Btn title={busy ? 'Envoi…' : 'Commander'} onPress={confirm} disabled={busy || (!isPickup && !pos)} />
     </ScrollView>
   )
 }

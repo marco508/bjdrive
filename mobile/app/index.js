@@ -14,6 +14,7 @@ function homeFor(role) {
   if (role === 'MANAGER') return '/manager'
   if (role === 'DRIVER') return '/driver'
   if (role === 'SUPERADMIN') return '/admin'
+  if (role === 'STAFF') return '/staff'
   return '/client'
 }
 

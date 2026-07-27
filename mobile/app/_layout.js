@@ -20,6 +20,7 @@ export default function RootLayout() {
         <Stack.Screen name="register" options={{ title: 'Créer un compte' }} />
         <Stack.Screen name="client" options={{ headerShown: false }} />
         <Stack.Screen name="driver/index" options={{ title: 'Espace livreur' }} />
+        <Stack.Screen name="staff/index" options={{ title: 'Espace employé' }} />
         <Stack.Screen name="manager" options={{ headerShown: false }} />
         <Stack.Screen name="admin/index" options={{ title: 'Administration' }} />
         <Stack.Screen name="store/[id]" options={{ title: 'Enseigne' }} />
