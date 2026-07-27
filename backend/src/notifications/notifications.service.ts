@@ -22,8 +22,17 @@ export class NotificationsService {
     const publicKey = this.config.get<string>('VAPID_PUBLIC_KEY')
     const privateKey = this.config.get<string>('VAPID_PRIVATE_KEY')
     if (publicKey && privateKey) {
-      webpush.setVapidDetails(this.config.get('VAPID_SUBJECT') || 'mailto:admin@bjdrive.bj', publicKey, privateKey)
-      this.enabled = true
+      // Des clés invalides ne doivent jamais empêcher l'API de démarrer :
+      // on désactive simplement le push et on explique comment corriger.
+      try {
+        webpush.setVapidDetails(this.config.get('VAPID_SUBJECT') || 'mailto:admin@bjdrive.bj', publicKey, privateKey)
+        this.enabled = true
+      } catch (e: any) {
+        this.logger.error(
+          `Clés VAPID invalides (${e?.message}) → notifications push désactivées. ` +
+            'Régénérez-les avec : npx web-push generate-vapid-keys',
+        )
+      }
     } else {
       this.logger.warn('VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY absents → notifications push désactivées.')
     }
