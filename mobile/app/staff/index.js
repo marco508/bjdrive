@@ -93,6 +93,19 @@ function OrdersTab({ store, orders, reload }) {
     }
   }
 
+  async function handover(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmHandover(orderId, store.id)
+      Alert.alert('🤝', `Remise au livreur ${r.driver} enregistrée.`)
+      await reload()
+    } catch (e) {
+      Alert.alert('Erreur', e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (!orders) return <Loader />
   if (list.length === 0) return <Empty icon="🧾" title="Aucune commande" text="Les commandes clients s'afficheront ici." />
 
@@ -122,6 +135,13 @@ function OrdersTab({ store, orders, reload }) {
               <Badge>📦 Prête</Badge>
             ) : (
               <Btn title="📦 Marquer comme prête" variant="outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => markReady(o.id)} />
+            ))}
+
+          {o.fulfillment !== 'PICKUP' && o.status === 'AWAITING_PICKUP' && o.delivery &&
+            (o.part?.handedOverAt ? (
+              <Badge>🤝 Remise au livreur confirmée</Badge>
+            ) : (
+              <Btn title="🤝 Confirmer la remise au livreur" variant="outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => handover(o.id)} />
             ))}
 
           {o.fulfillment === 'PICKUP' && o.status === 'AWAITING_PICKUP' && (

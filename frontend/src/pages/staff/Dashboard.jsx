@@ -81,6 +81,19 @@ function OrdersTab({ store, ordersQ, showToast }) {
     }
   }
 
+  async function handover(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmHandover(orderId, store.id)
+      showToast(`Remise au livreur ${r.driver} enregistrée 🤝`)
+      ordersQ.reload()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
       {ordersQ.loading && <Loader />}
@@ -119,6 +132,16 @@ function OrdersTab({ store, ordersQ, showToast }) {
               ) : (
                 <button className="btn small outline" style={{ marginBottom: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
                   📦 Marquer comme prête
+                </button>
+              )
+            )}
+
+            {!isPickup && o.status === 'AWAITING_PICKUP' && o.delivery && (
+              o.part?.handedOverAt ? (
+                <div className="badge" style={{ marginBottom: 8 }}>🤝 Remise au livreur confirmée</div>
+              ) : (
+                <button className="btn small outline" style={{ marginBottom: 8 }} disabled={busyId === o.id} onClick={() => handover(o.id)}>
+                  🤝 Confirmer la remise au livreur
                 </button>
               )
             )}

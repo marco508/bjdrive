@@ -43,6 +43,17 @@ export default function AdminOverview() {
             </div>
 
             {/* Actions qui attendent l'admin */}
+            {data.stuckDeliveries > 0 && (
+              <div className="card" style={{ background: '#ffe3e3' }}>
+                <p className="section-title" style={{ marginTop: 0 }}>🚨 Livraisons figées</p>
+                <p style={{ margin: '0 0 12px', fontSize: 14 }}>
+                  {data.stuckDeliveries} livraison(s) en cours depuis plus de 3 h — livreur(s) suspendu(s) automatiquement,
+                  vérifiez la situation (vol, panne, accident ?).
+                </p>
+                <button className="btn" onClick={() => nav('/admin/orders')}>Voir les commandes</button>
+              </div>
+            )}
+
             {data.blockedCodes > 0 && (
               <div className="card" style={{ background: '#ffe3e3' }}>
                 <p className="section-title" style={{ marginTop: 0 }}>🔒 Codes de réception bloqués</p>

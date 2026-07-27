@@ -1,5 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { DriverStatus, OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Cron, CronExpression } from '@nestjs/schedule'
+import { DriverStatus, OrderStatus, PaymentMethod, PaymentStatus, Role } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { GeoService } from '../common/geo.service'
 import { SettingsService } from '../common/settings.service'
@@ -10,9 +11,13 @@ import { haversine } from '../common/distance'
 
 const AVG_SPEED_KMH = 22 // vitesse moyenne d'un zémidjan en ville
 const MAX_CODE_ATTEMPTS = 5 // anti force brute sur le code de réception
+const STUCK_AFTER_HOURS = 3 // livraison sans issue depuis N heures → alerte + suspension
+const TRACK_MIN_INTERVAL_MS = 30_000 // un point GPS persisté toutes les 30 s max
 
 @Injectable()
 export class DeliveriesService {
+  private readonly logger = new Logger('Deliveries')
+  private lastTrackAt = new Map<string, number>() // orderId → dernier point persisté
   constructor(
     private prisma: PrismaService,
     private geo: GeoService,
@@ -39,14 +44,34 @@ export class DeliveriesService {
     return profile
   }
 
+  // Un livreur est « confirmé » après N livraisons réussies (config) :
+  // avant cela, pas de commandes cash et valeur de commande plafonnée —
+  // limite l'exposition financière face à un livreur inconnu.
+  private async driverTrust(driverId: string) {
+    const cfg = await this.settings.get()
+    const delivered = await this.prisma.delivery.count({ where: { driverId, deliveredAt: { not: null } } })
+    return {
+      trusted: delivered >= cfg.trustedDriverDeliveries,
+      delivered,
+      threshold: cfg.trustedDriverDeliveries,
+      maxOrderTotal: cfg.newDriverMaxOrderTotal,
+    }
+  }
+
   // Commandes en attente de prise en charge, proches du livreur.
   async available(driverId: string, lat: number, lng: number, radius = 30000) {
     await this.assertVerified(driverId)
+    const trust = await this.driverTrust(driverId)
     const near = await this.geo.awaitingOrdersNear(lat, lng, radius)
     const ids = near.map((n) => n.id)
     if (ids.length === 0) return []
     const orders = await this.prisma.order.findMany({
-      where: { id: { in: ids }, status: OrderStatus.AWAITING_DRIVER },
+      where: {
+        id: { in: ids },
+        status: OrderStatus.AWAITING_DRIVER,
+        // Nouveau livreur : uniquement du prépayé, sous le plafond de valeur.
+        ...(trust.trusted ? {} : { paymentMethod: PaymentMethod.KKIAPAY, total: { lte: trust.maxOrderTotal } }),
+      },
       include: { items: true, stores: { include: { store: true } } },
     })
     const distById = new Map(near.map((n) => [n.id, Number(n.distance)]))
@@ -86,6 +111,21 @@ export class DeliveriesService {
     if (!order) throw new NotFoundException('Commande introuvable.')
     if (order.status !== OrderStatus.AWAITING_DRIVER) throw new BadRequestException('Cette commande a déjà été prise en charge.')
 
+    // Garde-fous « nouveau livreur » (re-vérifiés à l'acceptation, pas seulement à l'affichage).
+    const trust = await this.driverTrust(driverId)
+    if (!trust.trusted) {
+      if (order.paymentMethod === PaymentMethod.CASH) {
+        throw new ForbiddenException(
+          `Les commandes en espèces sont réservées aux livreurs confirmés (${trust.delivered}/${trust.threshold} livraisons réussies).`,
+        )
+      }
+      if (order.total > trust.maxOrderTotal) {
+        throw new ForbiddenException(
+          `Commande au-dessus de votre plafond actuel (${trust.maxOrderTotal} FCFA). Il saute après ${trust.threshold} livraisons réussies.`,
+        )
+      }
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       const upd = await tx.order.updateMany({
         where: { id: orderId, status: OrderStatus.AWAITING_DRIVER },
@@ -117,12 +157,13 @@ export class DeliveriesService {
     const maxPerDay = profile?.maxPerDay ?? cfg.maxDeliveriesPerDay
     const potentialEarnings = deliveries.reduce((s, d) => s + d.earnings, 0)
     const confirmedEarnings = deliveries.filter((d) => d.deliveredAt).reduce((s, d) => s + d.earnings, 0)
-    // Note moyenne laissée par les clients.
+    // Note moyenne laissée par les clients + niveau de confiance.
     const ratingAgg = await this.prisma.review.aggregate({
       where: { targetType: 'DRIVER', targetId: driverId },
       _avg: { rating: true },
       _count: true,
     })
+    const trust = await this.driverTrust(driverId)
     // Le code de réception n'est jamais exposé au livreur.
     const safe = deliveries.map((d: any) => {
       if (d.order) {
@@ -140,6 +181,7 @@ export class DeliveriesService {
       verificationStatus: profile?.status ?? DriverStatus.PENDING,
       rating: ratingAgg._avg.rating,
       ratingCount: ratingAgg._count,
+      trust, // { trusted, delivered, threshold, maxOrderTotal }
       deliveries: safe,
     }
   }
@@ -283,10 +325,65 @@ export class DeliveriesService {
       where: { driverId, order: { status: { in: [OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY] } } },
       select: { orderId: true },
     })
+    const now = Date.now()
     for (const d of active) {
-      this.realtime.emitOrder(d.orderId, 'driverLocation', { orderId: d.orderId, lat, lng, at: Date.now() })
+      this.realtime.emitOrder(d.orderId, 'driverLocation', { orderId: d.orderId, lat, lng, at: now })
+      // Trace GPS persistée (preuve en cas de litige) — 1 point / 30 s max par commande.
+      if ((this.lastTrackAt.get(d.orderId) || 0) + TRACK_MIN_INTERVAL_MS <= now) {
+        this.lastTrackAt.set(d.orderId, now)
+        this.prisma.deliveryTrack.create({ data: { orderId: d.orderId, lat, lng } }).catch(() => {})
+      }
     }
     return { ok: true, notified: active.length }
+  }
+
+  // ---- Filet de sécurité : livraisons figées ----
+  // Une commande EN LIVRAISON sans issue depuis 3 h = signal de vol ou d'accident :
+  // le livreur est suspendu automatiquement (plus aucune nouvelle course), le
+  // client et le super-admin sont alertés — l'admin tranche ensuite (Livreurs).
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async watchStuckDeliveries() {
+    const cutoff = new Date(Date.now() - STUCK_AFTER_HOURS * 3600 * 1000)
+    const stuck = await this.prisma.delivery.findMany({
+      where: {
+        stuckNotifiedAt: null,
+        pickedUpAt: { lt: cutoff },
+        deliveredAt: null,
+        order: { status: OrderStatus.IN_DELIVERY },
+      },
+      include: { order: { select: { id: true, clientId: true, total: true } }, driver: { select: { id: true, name: true } } },
+    })
+    if (stuck.length === 0) {
+      // Purge des traces GPS de plus de 30 jours (au fil de l'eau).
+      await this.prisma.deliveryTrack.deleteMany({ where: { at: { lt: new Date(Date.now() - 30 * 24 * 3600 * 1000) } } }).catch(() => {})
+      return
+    }
+    const admins = await this.prisma.user.findMany({ where: { role: Role.SUPERADMIN }, select: { id: true } })
+    for (const d of stuck) {
+      await this.prisma.$transaction([
+        this.prisma.delivery.update({ where: { orderId: d.orderId }, data: { stuckNotifiedAt: new Date() } }),
+        this.prisma.driverProfile.updateMany({
+          where: { userId: d.driverId, status: DriverStatus.VERIFIED },
+          data: { status: DriverStatus.SUSPENDED, verificationNotes: `[AUTO] Livraison ${d.orderId.slice(-6)} figée > ${STUCK_AFTER_HOURS} h` },
+        }),
+      ])
+      this.logger.warn(`Livraison figée ${d.orderId} (livreur ${d.driver.name}) → livreur suspendu, admin alerté.`)
+      this.notifications.sendToUsers(admins.map((a) => a.id), {
+        title: '🚨 Livraison figée',
+        body: `${d.driver.name} n'a pas terminé la commande ${d.orderId.slice(-6).toUpperCase()} (${d.order.total} FCFA) depuis ${STUCK_AFTER_HOURS} h. Livreur suspendu automatiquement.`,
+        url: '/admin/orders',
+      })
+      this.notifications.sendToUser(d.driverId, {
+        title: '⚠️ Livraison non terminée',
+        body: 'Votre livraison en cours est bloquée depuis trop longtemps. Contactez le support BjDrive au plus vite.',
+        url: '/driver',
+      })
+      this.notifications.sendToUser(d.order.clientId, {
+        title: 'Nous suivons votre commande 🙏',
+        body: 'Votre livraison prend plus de temps que prévu — notre équipe a été alertée et vous recontacte.',
+        url: `/client/track/${d.orderId}`,
+      })
+    }
   }
 
   setAvailability(driverId: string, isAvailable: boolean) {

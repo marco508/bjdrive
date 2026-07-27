@@ -28,7 +28,9 @@ function makeService(overrides: any = {}) {
     ...overrides.prisma,
   }
   const geo: any = { awaitingOrdersNear: jest.fn().mockResolvedValue([]) }
-  const settings: any = { get: jest.fn().mockResolvedValue({ maxDeliveriesPerDay: 5 }) }
+  const settings: any = {
+    get: jest.fn().mockResolvedValue({ maxDeliveriesPerDay: 5, trustedDriverDeliveries: 20, newDriverMaxOrderTotal: 25000 }),
+  }
   const realtime: any = { emitOrder: jest.fn(), emitDrivers: jest.fn() }
   const notifications: any = {
     sendToUser: jest.fn(),
@@ -81,6 +83,30 @@ describe('DeliveriesService.accept', () => {
       expect.objectContaining({ data: expect.objectContaining({ earnings: 700 }) }),
     )
     expect(notifications.sendToUser).toHaveBeenCalledWith('client1', expect.anything())
+  })
+
+  // ---- Garde-fous « nouveau livreur » (anti-fraude) ----
+  it('nouveau livreur : commandes en espèces refusées', async () => {
+    const { svc, prisma } = makeService()
+    prisma.delivery.count.mockResolvedValue(0) // 0 livraison réussie → non confirmé
+    prisma.order.findUnique.mockResolvedValue({ ...BASE_ORDER, paymentMethod: 'CASH' })
+    await expect(svc.accept('driver1', 'o1')).rejects.toThrow(/réservées aux livreurs confirmés/)
+  })
+
+  it('nouveau livreur : commande au-dessus du plafond refusée', async () => {
+    const { svc, prisma } = makeService()
+    prisma.delivery.count.mockResolvedValue(0)
+    prisma.order.findUnique.mockResolvedValue({ ...BASE_ORDER, total: 60000 })
+    await expect(svc.accept('driver1', 'o1')).rejects.toThrow(/plafond/)
+  })
+
+  it('livreur confirmé (20+ livraisons) : cash et gros paniers autorisés', async () => {
+    const { svc, prisma } = makeService()
+    prisma.delivery.count.mockResolvedValue(25) // confirmé (sert aussi au quota du jour ≥ 5…
+    // …donc on relève le plafond quotidien pour isoler le test de confiance)
+    prisma.driverProfile.findUnique.mockResolvedValue({ userId: 'driver1', status: 'VERIFIED', maxPerDay: 100 })
+    prisma.order.findUnique.mockResolvedValue({ ...BASE_ORDER, paymentMethod: 'CASH', total: 60000 })
+    await expect(svc.accept('driver1', 'o1')).resolves.toBeDefined()
   })
 })
 

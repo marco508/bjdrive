@@ -127,6 +127,7 @@ export const api = {
   staffMyStore: () => get('/staff/my-store'),
   findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
   completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
+  confirmHandover: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/handover`),
 
   // Paiement
   initiatePayment: (orderId) => post(`/payments/${orderId}/initiate`),

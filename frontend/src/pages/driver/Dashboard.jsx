@@ -184,6 +184,18 @@ export default function DriverDashboard() {
           </div>
         )}
 
+        {/* Niveau de confiance (nouveau livreur) */}
+        {md && verified && md.trust && !md.trust.trusted && (
+          <div className="card" style={{ borderLeft: '4px solid var(--green)' }}>
+            <strong>🌱 Livreur en période de confiance</strong>
+            <p className="muted" style={{ fontSize: 13, margin: '4px 0 0' }}>
+              {md.trust.delivered}/{md.trust.threshold} livraisons réussies. En attendant, vous voyez les commandes
+              prépayées jusqu'à {formatFCFA(md.trust.maxOrderTotal)} — les commandes en espèces et les gros paniers
+              se débloquent ensuite. Chaque livraison validée vous rapproche du statut confirmé 💪
+            </p>
+          </div>
+        )}
+
         {/* Notifications push */}
         {pushSupported() && ['ready', 'denied'].includes(pushStatus) && (
           <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

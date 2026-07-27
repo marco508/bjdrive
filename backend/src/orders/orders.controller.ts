@@ -75,6 +75,14 @@ export class OrdersController {
     return this.orders.markStoreReady(userId, id, storeId)
   }
 
+  // L'enseigne confirme avoir remis les produits au livreur (traçabilité).
+  @Post(':id/store/:storeId/handover')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  handover(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('storeId') storeId: string) {
+    return this.orders.confirmHandover(userId, id, storeId)
+  }
+
   // Retrait sur place : l'enseigne valide la remise avec le code du client.
   @Post(':id/store/:storeId/complete-pickup')
   @UseGuards(RolesGuard)

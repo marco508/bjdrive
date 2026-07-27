@@ -202,6 +202,7 @@ export const api = {
   removeStaff: (storeId, staffId) => del(`/stores/${storeId}/staff/${staffId}`),
   findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
   completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
+  confirmHandover: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/handover`),
 
   // ---------- Manager ----------
   myStores: () => get('/stores/mine'),

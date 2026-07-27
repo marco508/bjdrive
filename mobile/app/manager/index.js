@@ -55,6 +55,19 @@ export default function ManagerOrders() {
     }
   }
 
+  async function handover(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmHandover(orderId, store.id)
+      Alert.alert('🤝', `Remise au livreur ${r.driver} enregistrée.`)
+      await load()
+    } catch (e) {
+      Alert.alert('Erreur', e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <FlatList
       data={orders || []}
@@ -98,6 +111,13 @@ export default function ManagerOrders() {
               <Badge>📦 Prête{o.fulfillment !== 'PICKUP' ? ' — en attente du livreur' : ''}</Badge>
             ) : (
               <Btn title="📦 Marquer comme prête" variant="outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => markReady(o.id)} />
+            ))}
+
+          {o.fulfillment !== 'PICKUP' && o.status === 'AWAITING_PICKUP' && o.delivery &&
+            (o.part?.handedOverAt ? (
+              <Badge>🤝 Remise au livreur confirmée</Badge>
+            ) : (
+              <Btn title="🤝 Confirmer la remise au livreur" variant="outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => handover(o.id)} />
             ))}
 
           {o.fulfillment === 'PICKUP' && o.status === 'AWAITING_PICKUP' && (

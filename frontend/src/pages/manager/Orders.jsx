@@ -32,6 +32,21 @@ export default function ManagerOrders() {
   }
 
   const [codes, setCodes] = useState({})
+
+  // Traçabilité : l'enseigne confirme avoir remis les produits au livreur.
+  async function handover(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmHandover(orderId, store.id)
+      showToast(`Remise au livreur ${r.driver} enregistrée 🤝`)
+      ordersQ.reload()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function completePickup(orderId) {
     setBusyId(orderId)
     try {
@@ -129,6 +144,17 @@ export default function ManagerOrders() {
                 ) : (
                   <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
                     📦 Marquer comme prête
+                  </button>
+                )
+              )}
+
+              {/* Traçabilité : confirmer la remise des produits au livreur assigné */}
+              {o.fulfillment !== 'PICKUP' && o.status === 'AWAITING_PICKUP' && o.delivery && (
+                o.part?.handedOverAt ? (
+                  <div className="badge" style={{ marginTop: 8 }}>🤝 Remise au livreur confirmée</div>
+                ) : (
+                  <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => handover(o.id)}>
+                    🤝 Confirmer la remise au livreur
                   </button>
                 )
               )}

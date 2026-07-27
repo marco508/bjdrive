@@ -24,7 +24,18 @@ export class SettingsService {
     return row
   }
 
-  update(data: Partial<{ baseDeliveryFee: number; perKmFee: number; commissionRate: number; maxDeliveriesPerDay: number; allowCashOnDelivery: boolean }>) {
+  update(
+    data: Partial<{
+      baseDeliveryFee: number
+      perKmFee: number
+      commissionRate: number
+      maxDeliveriesPerDay: number
+      allowCashOnDelivery: boolean
+      trustedDriverDeliveries: number
+      newDriverMaxOrderTotal: number
+      payoutDelayDays: number
+    }>,
+  ) {
     return this.prisma.appConfig.upsert({
       where: { id: 1 },
       update: data,

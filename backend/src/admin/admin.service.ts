@@ -193,12 +193,17 @@ export class AdminService {
   // Livreur  : + frais de livraison des commandes livrées payées en ligne
   //            − espèces dues (total collecté − ses frais) sur les commandes cash
   //            − versements reçus (un versement négatif = dépôt d'espèces).
+  // Un montant n'est « disponible » qu'après payoutDelayDays jours suivant la
+  // livraison (fenêtre de litige) — le reste apparaît « en attente ».
   async balances() {
-    const [storeParts, deliveries, payouts] = await Promise.all([
+    const cfg = await this.settings.get()
+    const holdCutoff = new Date(Date.now() - (cfg.payoutDelayDays || 0) * 24 * 3600 * 1000)
+    const [storeParts, deliveries, payouts, accounts] = await Promise.all([
       this.prisma.orderStore.findMany({
         where: { order: { status: OrderStatus.DELIVERED, paymentStatus: PaymentStatus.PAID } },
         select: {
           payoutAmount: true,
+          order: { select: { updatedAt: true } },
           store: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true, phone: true } } } },
         },
       }),
@@ -206,43 +211,68 @@ export class AdminService {
         where: { deliveredAt: { not: null } },
         select: {
           earnings: true,
+          deliveredAt: true,
           driver: { select: { id: true, name: true, email: true, phone: true } },
           order: { select: { paymentMethod: true, paymentStatus: true, total: true, deliveryFee: true } },
         },
       }),
       this.prisma.payout.groupBy({ by: ['userId'], _sum: { amount: true } }),
+      this.prisma.paymentAccount.findMany({
+        where: { isDefault: true },
+        select: { userId: true, provider: true, accountRef: true, holderName: true },
+      }),
     ])
     const paidByUser = new Map(payouts.map((p) => [p.userId, p._sum.amount || 0]))
+    const accountByUser = new Map(accounts.map((a) => [a.userId, a]))
 
     const stores = new Map<string, any>()
     for (const part of storeParts) {
       const owner = part.store.owner
-      const row = stores.get(owner.id) || { user: owner, storeNames: new Set<string>(), earned: 0 }
+      const row = stores.get(owner.id) || { user: owner, storeNames: new Set<string>(), earned: 0, pending: 0 }
       row.earned += part.payoutAmount
+      if (part.order.updatedAt > holdCutoff) row.pending += part.payoutAmount
       row.storeNames.add(part.store.name)
       stores.set(owner.id, row)
     }
 
     const drivers = new Map<string, any>()
     for (const d of deliveries) {
-      const row = drivers.get(d.driver.id) || { user: d.driver, earningsOnline: 0, cashCollected: 0, cashOwed: 0 }
+      const row = drivers.get(d.driver.id) || { user: d.driver, earningsOnline: 0, pending: 0, cashCollected: 0, cashOwed: 0 }
       if (d.order.paymentMethod === PaymentMethod.CASH) {
         row.cashCollected += d.order.total
         row.cashOwed += d.order.total - d.order.deliveryFee // il garde ses frais
       } else if (d.order.paymentStatus === PaymentStatus.PAID) {
         row.earningsOnline += d.earnings
+        if (d.deliveredAt && d.deliveredAt > holdCutoff) row.pending += d.earnings
       }
       drivers.set(d.driver.id, row)
     }
 
     return {
+      payoutDelayDays: cfg.payoutDelayDays,
       stores: [...stores.values()].map((r) => {
         const paidOut = paidByUser.get(r.user.id) || 0
-        return { ...r, storeNames: [...r.storeNames], paidOut, balance: r.earned - paidOut }
+        const balance = r.earned - paidOut
+        return {
+          ...r,
+          storeNames: [...r.storeNames],
+          paidOut,
+          balance,
+          // disponible = solde dû moins la part encore sous délai de litige
+          available: Math.max(0, balance - r.pending),
+          account: accountByUser.get(r.user.id) || null, // où verser (compte par défaut vérifié)
+        }
       }),
       drivers: [...drivers.values()].map((r) => {
         const paidOut = paidByUser.get(r.user.id) || 0
-        return { ...r, paidOut, balance: r.earningsOnline - r.cashOwed - paidOut }
+        const balance = r.earningsOnline - r.cashOwed - paidOut
+        return {
+          ...r,
+          paidOut,
+          balance,
+          available: Math.min(balance, Math.max(0, balance - r.pending)),
+          account: accountByUser.get(r.user.id) || null,
+        }
       }),
     }
   }
@@ -312,9 +342,10 @@ export class AdminService {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
     const inProgress: OrderStatus[] = [OrderStatus.AWAITING_DRIVER, OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY]
+    const stuckCutoff = new Date(Date.now() - 3 * 3600 * 1000)
     const [
       stores, pending, users, drivers, pendingDrivers, orders, delivered, payments, refundsPending,
-      ordersInProgress, blockedCodes, todayOrders, todayPayments,
+      ordersInProgress, blockedCodes, todayOrders, todayPayments, stuckDeliveries,
     ] = await Promise.all([
       this.prisma.store.count({ where: { status: StoreStatus.VERIFIED } }),
       this.prisma.store.count({ where: { status: StoreStatus.PENDING } }),
@@ -336,6 +367,10 @@ export class AdminService {
         where: { status: PaymentStatus.PAID, updatedAt: { gte: startOfToday } },
         _sum: { amount: true, platformAmount: true },
       }),
+      // Livraisons figées (récupérées il y a > 3 h, toujours pas livrées)
+      this.prisma.delivery.count({
+        where: { pickedUpAt: { lt: stuckCutoff }, deliveredAt: null, order: { status: OrderStatus.IN_DELIVERY } },
+      }),
     ])
     return {
       verifiedStores: stores,
@@ -348,6 +383,7 @@ export class AdminService {
       refundsPending,
       ordersInProgress,
       blockedCodes,
+      stuckDeliveries,
       todayOrders,
       todayVolume: todayPayments._sum.amount || 0,
       todayRevenue: todayPayments._sum.platformAmount || 0,

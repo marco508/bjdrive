@@ -243,6 +243,22 @@ export class OrdersService {
     return { ok: true, readyAt: updated.readyAt }
   }
 
+  // Chaîne de responsabilité : l'enseigne confirme AVOIR REMIS les produits au
+  // livreur assigné (horodaté — preuve de transfert de garde en cas de litige).
+  async confirmHandover(userId: string, orderId: string, storeId: string) {
+    await this.assertStoreAccess(storeId, userId)
+    const os = await this.prisma.orderStore.findUnique({
+      where: { orderId_storeId: { orderId, storeId } },
+      include: { order: { include: { delivery: { include: { driver: { select: { id: true, name: true } } } } } } },
+    })
+    if (!os) throw new NotFoundException('Commande introuvable pour cette enseigne.')
+    if (!os.order.delivery) throw new BadRequestException("Aucun livreur n'est encore assigné à cette commande.")
+    if (os.handedOverAt) return { ok: true, handedOverAt: os.handedOverAt, driver: os.order.delivery.driver.name }
+    const updated = await this.prisma.orderStore.update({ where: { id: os.id }, data: { handedOverAt: new Date() } })
+    this.realtime.emitOrder(orderId, 'orderUpdate', { id: orderId, handedOverStore: storeId })
+    return { ok: true, handedOverAt: updated.handedOverAt, driver: os.order.delivery.driver.name }
+  }
+
   // RETRAIT SUR PLACE : l'enseigne valide la remise avec le code de réception
   // du client (même sécurité que la livraison : 5 essais max).
   async completePickup(userId: string, orderId: string, storeId: string, code: string) {

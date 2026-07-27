@@ -19,6 +19,10 @@ export class UpdateConfigDto {
   @IsOptional() @IsNumber() commissionRate?: number
   @IsOptional() @IsInt() @Min(1) maxDeliveriesPerDay?: number
   @IsOptional() @IsBoolean() allowCashOnDelivery?: boolean
+  // Anti-fraude / litiges
+  @IsOptional() @IsInt() @Min(1) trustedDriverDeliveries?: number
+  @IsOptional() @IsInt() @Min(0) newDriverMaxOrderTotal?: number
+  @IsOptional() @IsInt() @Min(0) payoutDelayDays?: number
 }
 
 export class SetRoleDto {

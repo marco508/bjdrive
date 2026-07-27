@@ -111,10 +111,16 @@ export default function AdminFinance() {
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
               Gagné {formatFCFA(r.earned)} · déjà versé {formatFCFA(r.paidOut)}
+              {r.pending > 0 && ` · ⏳ ${formatFCFA(r.pending)} sous délai de litige (${balancesQ.data?.payoutDelayDays} j)`}
             </div>
-            {r.balance > 0 && (
-              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.balance)}>
-                💸 Enregistrer un versement
+            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+              {r.account
+                ? `💳 Verser sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
+                : '⚠️ Aucun compte de versement renseigné par le gérant.'}
+            </div>
+            {r.available > 0 && (
+              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.available)}>
+                💸 Verser le disponible ({formatFCFA(r.available)})
               </button>
             )}
           </div>
@@ -135,6 +141,12 @@ export default function AdminFinance() {
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
               Gains en ligne {formatFCFA(r.earningsOnline)} · espèces à reverser {formatFCFA(r.cashOwed)} · déjà réglé {formatFCFA(r.paidOut)}
+              {r.pending > 0 && ` · ⏳ ${formatFCFA(r.pending)} sous délai`}
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+              {r.account
+                ? `💳 Régler sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
+                : '⚠️ Aucun compte de versement renseigné par le livreur.'}
             </div>
             {r.balance < 0 && (
               <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>

@@ -132,6 +132,16 @@ export default function DriverDashboard() {
         </Card>
       )}
 
+      {md && verified && md.trust && !md.trust.trusted && (
+        <Card style={{ borderLeftWidth: 4, borderLeftColor: C.green }}>
+          <Text style={{ fontWeight: '700' }}>🌱 Livreur en période de confiance</Text>
+          <Text style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>
+            {md.trust.delivered}/{md.trust.threshold} livraisons réussies. Commandes prépayées jusqu'à{' '}
+            {formatFCFA(md.trust.maxOrderTotal)} — les espèces et gros paniers se débloquent ensuite 💪
+          </Text>
+        </Card>
+      )}
+
       {md && (
         <Card>
           <RowBetween>

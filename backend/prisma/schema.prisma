@@ -304,7 +304,9 @@ model OrderStore {
   subtotal     Int // total des produits de cette enseigne
   payoutAmount Int // reversement à l'enseigne (= subtotal)
   readyAt      DateTime? // l'enseigne a préparé/confirmé sa part de la commande
-  pickedUpAt   DateTime? // horodatage du retrait au magasin
+  // Chaîne de responsabilité : l'enseigne confirme AVOIR REMIS les produits au livreur.
+  handedOverAt DateTime?
+  pickedUpAt   DateTime? // horodatage du retrait au magasin (côté livreur)
 
   @@unique([orderId, storeId])
   @@index([storeId])
@@ -332,6 +334,8 @@ model Delivery {
   acceptedAt DateTime  @default(now())
   pickedUpAt DateTime?
   deliveredAt DateTime?
+  // Alerte « livraison figée » déjà traitée (suspension auto + notification admin)
+  stuckNotifiedAt DateTime?
 
   @@index([driverId])
 }
@@ -435,6 +439,29 @@ model AppConfig {
   commissionRate     Float   @default(0.10)
   maxDeliveriesPerDay Int    @default(5)
   allowCashOnDelivery Boolean @default(true) // autoriser le paiement à la livraison
+
+  // ---- Anti-fraude livreurs ----
+  // Un livreur devient « confirmé » après N livraisons réussies.
+  trustedDriverDeliveries Int @default(20)
+  // Avant d'être confirmé : valeur max d'une commande, et pas de commandes cash.
+  newDriverMaxOrderTotal  Int @default(25000)
+  // ---- Protection enseignes/litiges ----
+  // Délai (jours) après livraison avant qu'un montant soit éligible au versement.
+  payoutDelayDays         Int @default(3)
+
   currency           String  @default("XOF")
   updatedAt          DateTime @updatedAt
+}
+
+// Trace GPS persistée pendant une livraison (preuve en cas de litige/vol).
+// Purgée automatiquement après 30 jours.
+model DeliveryTrack {
+  id      String   @id @default(cuid())
+  orderId String
+  lat     Float
+  lng     Float
+  at      DateTime @default(now())
+
+  @@index([orderId, at])
+  @@index([at])
 }
