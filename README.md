@@ -34,7 +34,21 @@ Le super-admin est créé au démarrage (identifiants dans les variables d'envir
 
 ## État d'avancement
 
-- ✅ **Backend complet** : modèle de données, 4 rôles, cycle de commande, commission & répartition, proximité PostGIS, plafond livreur, vérification des enseignes, paiement KkiaPay, temps réel, super-admin. Dockerisé.
-- ⏳ **Prochaine étape** : rebrancher l'application `frontend/` (aujourd'hui en version démo) sur cette API, intégrer le widget de paiement KkiaPay et l'interface super-admin.
+- ✅ **Backend complet** : modèle de données, 4 rôles, cycle de commande, commission & répartition, proximité PostGIS, plafond livreur, vérification des enseignes **et des livreurs**, paiement KkiaPay **+ paiement à la livraison (espèces)**, **remboursements**, **versements (soldes enseignes/livreurs)**, **avis/notes**, **photos produits & enseignes**, temps réel, **notifications Web Push**, super-admin. Dockerisé, **migrations Prisma versionnées**, testé (Jest).
+- ✅ **Frontend branché sur l'API** : parcours client (dont cash et notation), livreur (vérification, gains 30 j, push), manager (commande « prête », photos), super-admin (livreurs, finances : remboursements & versements).
+
+## Sécurité intégrée
+
+Refresh tokens avec rotation (access token 1 h) · rate limiting (strict sur l'auth) · helmet ·
+code de réception limité à 5 essais · webhook KkiaPay protégé par secret + re-vérification ·
+paiement simulé interdit en production (`NODE_ENV=production`) · healthchecks Docker sur les 3 services.
+
+## Checklist avant mise en production
+
+1. Dans `.env` (racine) : `NODE_ENV=production`, `JWT_SECRET` fort, `SUPERADMIN_PASSWORD` fort.
+2. Renseigner les clés **KkiaPay** + `KKIAPAY_WEBHOOK_SECRET` (URL du webhook : `/api/payments/webhook?token=<secret>`).
+3. Régénérer les clés **VAPID** (`npx web-push generate-vapid-keys`) — celles du `.env` local sont de dev.
+4. Servir l'API et le web en **HTTPS** (reverse proxy) — requis pour le GPS et les notifications push.
+5. Adapter `CORS_ORIGIN` et les variables `VITE_*` au domaine réel.
 
 Voir **`backend/README.md`** pour la liste des endpoints et les détails techniques.

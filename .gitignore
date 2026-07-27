@@ -4,3 +4,8 @@ dist
 .env.local
 *.log
 .DS_Store
+
+# Archives / restes locaux à ne pas versionner
+_v3.zip
+_to_delete/
+uploads/
