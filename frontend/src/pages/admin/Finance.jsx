@@ -67,7 +67,7 @@ export default function AdminFinance() {
       <TopBar title="Finances" subtitle="Remboursements & versements" right={<button className="pill" onClick={logout}>Quitter</button>} />
       <div className="screen">
         {/* ---- Remboursements à traiter ---- */}
-        <p className="section-title">💸 Remboursements à traiter</p>
+        <p className="section-title">Remboursements à traiter</p>
         {refundsQ.loading && <Loader />}
         <ErrorBox error={refundsQ.error} onRetry={refundsQ.reload} />
         {!refundsQ.loading && refunds.length === 0 && (
@@ -87,14 +87,14 @@ export default function AdminFinance() {
               {o.payment?.providerRef ? ` · KkiaPay ${o.payment.providerRef}` : ''}
             </div>
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn small" disabled={busy === o.id} onClick={() => retryRefund(o.id)}>🔁 Rembourser via KkiaPay</button>
+              <button className="btn small" disabled={busy === o.id} onClick={() => retryRefund(o.id)}>Rembourser via KkiaPay</button>
               <button className="btn outline small" disabled={busy === o.id} onClick={() => markRefunded(o.id)}>Marquer remboursé (manuel)</button>
             </div>
           </div>
         ))}
 
         {/* ---- Soldes enseignes ---- */}
-        <p className="section-title">🏪 Soldes dus aux enseignes</p>
+        <p className="section-title">Soldes dus aux enseignes</p>
         {balancesQ.loading && <Loader />}
         <ErrorBox error={balancesQ.error} onRetry={balancesQ.reload} />
         {!balancesQ.loading && stores.length === 0 && (
@@ -120,14 +120,14 @@ export default function AdminFinance() {
             </div>
             {r.available > 0 && (
               <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.available)}>
-                💸 Verser le disponible ({formatFCFA(r.available)})
+                Verser le disponible ({formatFCFA(r.available)})
               </button>
             )}
           </div>
         ))}
 
         {/* ---- Soldes livreurs ---- */}
-        <p className="section-title">🛵 Soldes des livreurs</p>
+        <p className="section-title">Soldes des livreurs</p>
         {!balancesQ.loading && drivers.length === 0 && (
           <div className="card muted" style={{ fontSize: 14 }}>Aucune livraison effectuée pour le moment.</div>
         )}
@@ -155,7 +155,7 @@ export default function AdminFinance() {
             )}
             {r.balance !== 0 && (
               <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.balance)}>
-                💸 Enregistrer un règlement
+                Enregistrer un règlement
               </button>
             )}
           </div>
@@ -164,7 +164,7 @@ export default function AdminFinance() {
         {/* ---- Historique des versements ---- */}
         {(payoutsQ.data || []).length > 0 && (
           <>
-            <p className="section-title">📜 Derniers versements</p>
+            <p className="section-title">Derniers versements</p>
             <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
               {(payoutsQ.data || []).slice(0, 20).map((p) => (
                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>

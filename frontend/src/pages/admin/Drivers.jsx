@@ -94,13 +94,13 @@ export default function AdminDrivers() {
                     placeholder="Ex : CNI vérifiée, entretien téléphonique OK" />
                 </label>
                 <div className="row">
-                  <button className="btn small" disabled={busyId === p.userId} onClick={() => verify(p.userId, true)}>✅ Vérifier</button>
+                  <button className="btn small" disabled={busyId === p.userId} onClick={() => verify(p.userId, true)}>Vérifier</button>
                   <button className="btn danger small" disabled={busyId === p.userId} onClick={() => verify(p.userId, false)}>Refuser</button>
                 </div>
               </>
             ) : p.status === 'VERIFIED' ? (
               <button className="btn outline small" style={{ marginTop: 10 }} disabled={busyId === p.userId} onClick={() => suspend(p.userId, true)}>
-                ⛔ Suspendre
+                Suspendre
               </button>
             ) : (
               <button className="btn outline small" style={{ marginTop: 10 }} disabled={busyId === p.userId} onClick={() => suspend(p.userId, false)}>

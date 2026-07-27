@@ -95,8 +95,8 @@ button { font-family: inherit; }
   border-radius: 10px;
 }
 .tabbar a.active { color: var(--green); }
-.tabbar .ic { font-size: 20px; }
-.tabbar .brand, .tabbar .side-foot { display: none; }
+.tabbar .ic { font-size: 20px; display: grid; place-items: center; }
+.tabbar .brand, .tabbar .side-foot, .tabbar .side-logout { display: none; }
 
 /* Cards */
 .card {
@@ -341,8 +341,20 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); bor
   .tabbar a:hover { background: rgba(255,255,255,.08); color: #fff; }
   .tabbar a.active { background: rgba(255,255,255,.14); color: #fff; }
   .tabbar .ic { font-size: 18px; }
+  .tabbar .side-logout {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: auto;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    color: rgba(255,255,255,.85);
+    padding: 11px 12px; border-radius: 11px;
+    font-size: 14px; font-weight: 600; font-family: inherit;
+    cursor: pointer; text-align: left;
+    transition: background .15s ease;
+  }
+  .tabbar .side-logout:hover { background: rgba(232,17,45,.25); color: #fff; }
   .tabbar .side-foot {
-    display: block; margin-top: auto; padding: 12px;
+    display: block; padding: 12px;
     color: rgba(255,255,255,.45); font-size: 11px; line-height: 1.5;
   }
 

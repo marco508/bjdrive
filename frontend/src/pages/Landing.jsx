@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
+import Icon from '../components/Icon.jsx'
 
 const ROLES = [
-  { role: 'client', ic: '🛒', title: 'Je commande', desc: 'Faites vos courses et livrez-vous à domicile' },
-  { role: 'manager', ic: '🏪', title: "Je gère une enseigne", desc: 'Ajoutez votre boutique, vos produits et stocks' },
-  { role: 'driver', ic: '🛵', title: 'Je livre', desc: 'Prenez des livraisons proches de vous' },
+  { role: 'client', icon: 'shoppingCart', title: 'Je commande', desc: 'Faites vos courses et livrez-vous à domicile' },
+  { role: 'manager', icon: 'storefront', title: "Je gère une enseigne", desc: 'Ajoutez votre boutique, vos produits et stocks' },
+  { role: 'driver', icon: 'moped', title: 'Je livre', desc: 'Prenez des livraisons proches de vous' },
 ]
 
 export default function Landing() {
@@ -18,22 +19,22 @@ export default function Landing() {
         <h1>BjDrive</h1>
         <p className="tag">Commandez auprès d'enseignes vérifiées au Bénin et faites-vous livrer — suivi du livreur en temps réel.</p>
         <div className="hero-points">
-          <span>✅ Enseignes et livreurs vérifiés par nos équipes</span>
-          <span>📍 Suivi GPS du livreur et heure d'arrivée estimée</span>
-          <span>💳 Mobile Money, carte bancaire ou espèces à la livraison</span>
-          <span>🔐 Code de réception sécurisé à la remise</span>
+          <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Icon name="verified" size={18} /> Enseignes et livreurs vérifiés par nos équipes</span>
+          <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Icon name="localShipping" size={18} /> Suivi GPS du livreur et heure d'arrivée estimée</span>
+          <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Icon name="payments" size={18} /> Mobile Money, carte bancaire ou espèces à la livraison</span>
+          <span style={{ display: 'flex', gap: 10, alignItems: 'center' }}><Icon name="chat" size={18} /> Discussion directe avec l'enseigne et le livreur</span>
         </div>
       </div>
 
       <div>
         {ROLES.map((r) => (
           <button key={r.role} className="role-btn" onClick={() => nav(`/login?role=${r.role}`)}>
-            <span className="ic">{r.ic}</span>
+            <span className="ic"><Icon name={r.icon} size={26} /></span>
             <div>
               <h3>{r.title}</h3>
               <p>{r.desc}</p>
             </div>
-            <span style={{ marginLeft: 'auto', fontSize: 22, opacity: .7 }}>›</span>
+            <span style={{ marginLeft: 'auto', opacity: .7, display: 'flex' }}><Icon name="chevronRight" size={22} /></span>
           </button>
         ))}
         <p style={{ textAlign: 'center', marginTop: 14 }}>

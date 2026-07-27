@@ -2,6 +2,7 @@ import { ScrollView, Text } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useApp } from '../../src/store'
 import { BioToggle } from '../../src/biolock'
+import DeleteAccount from '../../src/DeleteAccount'
 import { Btn, Card } from '../../src/ui'
 import { C } from '../../src/theme'
 
@@ -23,6 +24,7 @@ export default function ManagerAccount() {
       </Card>
       <BioToggle />
       <Btn title="Se déconnecter" variant="danger" onPress={async () => { await logout(); router.replace('/') }} />
+      <DeleteAccount />
     </ScrollView>
   )
 }

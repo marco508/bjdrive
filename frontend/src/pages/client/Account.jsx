@@ -4,6 +4,8 @@ import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar } from '../../components/ui.jsx'
+import Icon from '../../components/Icon.jsx'
+import AccountDanger from '../../components/AccountDanger.jsx'
 import { pushSupported, getPushStatus, enablePush, disablePush } from '../../lib/push.js'
 import { resetOnboarding } from '../../components/Onboarding.jsx'
 import { formatFCFA } from '../../lib/geo.js'
@@ -110,8 +112,8 @@ export default function Account() {
         )}
 
         {pushSupported() && ['ready', 'subscribed'].includes(pushStatus) && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🔔</span>
+          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Icon name="notifications" size={22} color="var(--green-dark)" />
             <div style={{ flex: 1, fontSize: 14 }}>
               Notifications de suivi de commande {pushStatus === 'subscribed' ? '(activées)' : ''}
             </div>
@@ -121,8 +123,8 @@ export default function Account() {
           </div>
         )}
 
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22 }}>📖</span>
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="menuBook" size={22} color="var(--green-dark)" />
           <div style={{ flex: 1, fontSize: 14 }}>Guide de prise en main</div>
           <button className="btn small outline" onClick={() => { resetOnboarding(user?.role || 'CLIENT'); window.location.reload() }}>
             Revoir
@@ -137,7 +139,7 @@ export default function Account() {
           </p>
         </div>
 
-        <button className="btn danger" onClick={handleLogout}>Se déconnecter</button>
+        <AccountDanger />
       </div>
     </>
   )

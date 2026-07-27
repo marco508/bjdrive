@@ -10,6 +10,7 @@ import { useApp } from '../../src/store'
 import ChatBox from '../../src/ChatBox'
 import OnboardingGate from '../../src/OnboardingGate'
 import { BioToggle } from '../../src/biolock'
+import DeleteAccount from '../../src/DeleteAccount'
 import { Badge, Btn, Card, Empty, ErrorBox, Field, Loader, RowBetween, SectionTitle } from '../../src/ui'
 import { C, formatFCFA } from '../../src/theme'
 
@@ -215,6 +216,7 @@ export default function DriverDashboard() {
 
       <BioToggle />
       <Btn title="Se déconnecter" variant="ghost" onPress={async () => { await logout(); router.replace('/') }} />
+      <DeleteAccount />
     </ScrollView>
   )
 }

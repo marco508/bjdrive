@@ -8,6 +8,7 @@ import { onNewOrders } from '../../services/realtime.js'
 import { pushSupported, getPushStatus, enablePush } from '../../lib/push.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
 import OrderChat from '../../components/OrderChat.jsx'
+import AccountDanger from '../../components/AccountDanger.jsx'
 
 export default function DriverDashboard() {
   const { user, logout, showToast } = useApp()
@@ -336,6 +337,10 @@ export default function DriverDashboard() {
             ))}
           </>
         )}
+
+        <div style={{ marginTop: 24 }}>
+          <AccountDanger />
+        </div>
 
         {/* Historique des gains (30 jours) */}
         {earnState.data && earnState.data.totalDeliveries > 0 && (

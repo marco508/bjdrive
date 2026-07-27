@@ -86,7 +86,7 @@ export default function AdminOrders() {
                     🔒 Code de réception bloqué ({o.codeAttempts} tentatives) — vérifiez avec le client avant de débloquer.
                   </div>
                   <button className="btn small" disabled={busyId === o.id} onClick={() => resetCode(o.id)}>
-                    🔓 Débloquer le code
+                    Débloquer le code
                   </button>
                 </div>
               )}

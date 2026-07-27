@@ -93,6 +93,7 @@ import { STORE_STATUS_LABELS } from '../../services/constants.js'
 import { getCurrentPosition } from '../../lib/geo.js'
 import { imageSrc } from '../../config.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
+import AccountDanger from '../../components/AccountDanger.jsx'
 
 const EMOJIS = ['🛒', '🏬', '🥫', '🏪', '🛍️', '💊', '🥖', '🧺']
 const COLORS = ['#0a7d3c', '#1565c0', '#e8112d', '#8a5a00', '#6a1b9a', '#00838f']
@@ -326,6 +327,10 @@ export default function StoreSetup() {
             </button>
           </div>
         </form>
+
+        <div style={{ marginTop: 24 }}>
+          <AccountDanger />
+        </div>
       </div>
     </>
   )

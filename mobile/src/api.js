@@ -97,6 +97,7 @@ export const api = {
   // Utilisateur
   me: () => get('/users/me'),
   updateMe: (dto) => patch('/users/me', dto),
+  deleteMe: (password) => req('DELETE', '/users/me', { password }),
 
   // Config publique
   publicConfig: () => get('/config/public', { auth: false }),

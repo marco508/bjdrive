@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router'
 import { api } from '../../src/api'
 import { useApp } from '../../src/store'
 import { BioToggle } from '../../src/biolock'
+import DeleteAccount from '../../src/DeleteAccount'
 import { Btn, Card, RowBetween, SectionTitle } from '../../src/ui'
 import { C, formatFCFA } from '../../src/theme'
 
@@ -77,6 +78,7 @@ export default function Account() {
       </Card>
 
       <Btn title="Se déconnecter" variant="danger" onPress={handleLogout} />
+      <DeleteAccount />
     </ScrollView>
   )
 }

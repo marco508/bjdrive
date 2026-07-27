@@ -189,21 +189,21 @@ export default function AdminStores() {
                       disabled={busy === s.id}
                       onClick={() => verify(s, { approved: true, method: 'ONSITE' })}
                     >
-                      ✅ Vérifier (sur place)
+                      Vérifier (sur place)
                     </button>
                     <button
                       className="btn outline small"
                       disabled={busy === s.id}
                       onClick={() => verify(s, { approved: true, method: 'VIDEO' })}
                     >
-                      ✅ Vérifier (vidéo)
+                      Vérifier (vidéo)
                     </button>
                     <button
                       className="btn danger small"
                       disabled={busy === s.id}
                       onClick={() => verify(s, { approved: false })}
                     >
-                      ❌ Refuser
+                      Refuser
                     </button>
                   </div>
                 </>
@@ -214,21 +214,21 @@ export default function AdminStores() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                   {s.status === 'VERIFIED' && (
                     <button className="btn outline small" disabled={busy === s.id} onClick={() => suspend(s, true)}>
-                      ⏸️ Suspendre
+                      Suspendre
                     </button>
                   )}
                   {s.status === 'SUSPENDED' && (
                     <button className="btn outline small" disabled={busy === s.id} onClick={() => suspend(s, false)}>
-                      ▶️ Réactiver
+                      Réactiver
                     </button>
                   )}
                   {s.status !== 'BANNED' && (
                     <button className="btn danger small" disabled={busy === s.id} onClick={() => ban(s)}>
-                      ⛔ Bloquer définitivement
+                      Bloquer définitivement
                     </button>
                   )}
                   <button className="btn danger small" style={{ opacity: 0.85 }} disabled={busy === s.id} onClick={() => remove(s)}>
-                    🗑️ Supprimer
+                    Supprimer
                   </button>
                 </div>
               )}

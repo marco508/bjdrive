@@ -144,6 +144,7 @@ export const api = {
   // ---------- Utilisateur ----------
   me: () => get('/users/me'),
   updateMe: (dto) => patch('/users/me', dto),
+  deleteMe: (password) => delBody('/users/me', { password }),
   paymentAccounts: () => get('/users/me/payment-accounts'),
   addPaymentAccount: (dto) => post('/users/me/payment-accounts', dto),
   removePaymentAccount: (id) => del(`/users/me/payment-accounts/${id}`),

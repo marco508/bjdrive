@@ -116,10 +116,10 @@ export default function AdminConfig() {
                 checked={!!form.allowCashOnDelivery}
                 onChange={(e) => setForm((f) => ({ ...f, allowCashOnDelivery: e.target.checked }))}
               />
-              <span>💵 Autoriser le paiement en espèces à la livraison</span>
+              <span>Autoriser le paiement en espèces à la livraison</span>
             </label>
 
-            <p className="section-title">🛡️ Anti-fraude</p>
+            <p className="section-title">Anti-fraude</p>
 
             <label className="field">
               <span>Livraisons réussies pour devenir livreur « confirmé »</span>

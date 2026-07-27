@@ -4,6 +4,7 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox, StatusBadge } from '../../components/ui.jsx'
 import OrderChat from '../../components/OrderChat.jsx'
+import AccountDanger from '../../components/AccountDanger.jsx'
 import { STATUS_LABELS, STATUS_ICON } from '../../services/constants.js'
 import { formatFCFA } from '../../lib/geo.js'
 
@@ -38,12 +39,16 @@ export default function StaffDashboard() {
       />
       <div className="screen">
         <div className="row" style={{ marginBottom: 14 }}>
-          <button className={`btn small ${tab === 'orders' ? '' : 'outline'}`} onClick={() => setTab('orders')}>🧾 Commandes</button>
-          <button className={`btn small ${tab === 'products' ? '' : 'outline'}`} onClick={() => setTab('products')}>🏷️ Produits & scan</button>
+          <button className={`btn small ${tab === 'orders' ? '' : 'outline'}`} onClick={() => setTab('orders')}>Commandes</button>
+          <button className={`btn small ${tab === 'products' ? '' : 'outline'}`} onClick={() => setTab('products')}>Produits & scan</button>
         </div>
 
         {tab === 'orders' && <OrdersTab store={store} ordersQ={ordersQ} showToast={showToast} />}
         {tab === 'products' && <ProductsTab store={store} reload={storeQ.reload} showToast={showToast} />}
+
+        <div style={{ marginTop: 24 }}>
+          <AccountDanger />
+        </div>
       </div>
     </>
   )
@@ -131,7 +136,7 @@ function OrdersTab({ store, ordersQ, showToast }) {
                 <div className="badge" style={{ marginBottom: 8 }}>📦 Prête</div>
               ) : (
                 <button className="btn small outline" style={{ marginBottom: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
-                  📦 Marquer comme prête
+                  Marquer comme prête
                 </button>
               )
             )}
@@ -141,7 +146,7 @@ function OrdersTab({ store, ordersQ, showToast }) {
                 <div className="badge" style={{ marginBottom: 8 }}>🤝 Remise au livreur confirmée</div>
               ) : (
                 <button className="btn small outline" style={{ marginBottom: 8 }} disabled={busyId === o.id} onClick={() => handover(o.id)}>
-                  🤝 Confirmer la remise au livreur
+                  Confirmer la remise au livreur
                 </button>
               )
             )}
@@ -157,7 +162,7 @@ function OrdersTab({ store, ordersQ, showToast }) {
                   style={{ flex: 1 }}
                 />
                 <button className="btn small" disabled={busyId === o.id || !(codes[o.id] || '').trim()} onClick={() => completePickup(o.id)}>
-                  ✅ Remettre
+                  Remettre
                 </button>
               </div>
             )}
@@ -232,7 +237,7 @@ function ProductsTab({ store, reload, showToast }) {
   return (
     <>
       <div className="card">
-        <p className="section-title" style={{ marginTop: 0 }}>🔎 Code-barres</p>
+        <p className="section-title" style={{ marginTop: 0 }}>Code-barres</p>
         <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
           Scannez avec une douchette (le code s'écrit tout seul) ou saisissez le code, puis validez.
           Le code est propre à votre enseigne. 📱 Sur l'application mobile, utilisez la caméra pour scanner.

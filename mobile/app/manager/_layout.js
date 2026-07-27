@@ -1,9 +1,9 @@
 import { Tabs } from 'expo-router'
-import { Text } from 'react-native'
+import { MaterialIcons } from '@expo/vector-icons'
 import { C } from '../../src/theme'
 import OnboardingGate from '../../src/OnboardingGate'
 
-const icon = (glyph) => ({ focused }) => <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{glyph}</Text>
+const icon = (name) => ({ color }) => <MaterialIcons name={name} size={24} color={color} />
 
 export default function ManagerLayout() {
   return (
@@ -19,9 +19,9 @@ export default function ManagerLayout() {
         sceneStyle: { backgroundColor: C.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Commandes', tabBarIcon: icon('🧾') }} />
-      <Tabs.Screen name="products" options={{ title: 'Produits', tabBarIcon: icon('🏷️') }} />
-      <Tabs.Screen name="account" options={{ title: 'Compte', tabBarIcon: icon('👤') }} />
+      <Tabs.Screen name="index" options={{ title: 'Commandes', tabBarIcon: icon('receipt-long') }} />
+      <Tabs.Screen name="products" options={{ title: 'Produits', tabBarIcon: icon('qr-code-scanner') }} />
+      <Tabs.Screen name="account" options={{ title: 'Compte', tabBarIcon: icon('person') }} />
     </Tabs>
     </>
   )

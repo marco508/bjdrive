@@ -1,4 +1,6 @@
 import { useNavigate, NavLink } from 'react-router-dom'
+import { useApp } from '../context/AppContext.jsx'
+import Icon from './Icon.jsx'
 
 export function TopBar({ title, subtitle, back, right }) {
   const nav = useNavigate()
@@ -16,7 +18,9 @@ export function TopBar({ title, subtitle, back, right }) {
 }
 
 // Barre d'onglets en mobile, sidebar de navigation en desktop (voir index.css).
+// Icônes Material (SVG) — la déconnexion est toujours visible en pied de sidebar.
 function Tabs({ tabs }) {
+  const { logout } = useApp()
   return (
     <nav className="tabbar">
       <div className="brand">
@@ -25,13 +29,17 @@ function Tabs({ tabs }) {
       </div>
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => (isActive ? 'active' : '')}>
-          <span className="ic">{t.ic}</span>
+          <span className="ic"><Icon name={t.icon} size={21} /></span>
           {t.label}
         </NavLink>
       ))}
+      <button className="side-logout" onClick={logout}>
+        <Icon name="logout" size={19} />
+        Se déconnecter
+      </button>
       <div className="side-foot">
         Marketplace de livraison au Bénin
-        <br />🇧🇯 Enseignes vérifiées · paiement sécurisé
+        <br />Enseignes vérifiées · paiement sécurisé
       </div>
     </nav>
   )
@@ -40,9 +48,9 @@ function Tabs({ tabs }) {
 export const ClientTabs = () => (
   <Tabs
     tabs={[
-      { to: '/client', ic: '🛒', label: 'Enseignes', end: true },
-      { to: '/client/orders', ic: '📦', label: 'Commandes' },
-      { to: '/client/account', ic: '👤', label: 'Compte' },
+      { to: '/client', icon: 'storefront', label: 'Enseignes', end: true },
+      { to: '/client/orders', icon: 'receipt', label: 'Commandes' },
+      { to: '/client/account', icon: 'person', label: 'Compte' },
     ]}
   />
 )
@@ -50,10 +58,10 @@ export const ClientTabs = () => (
 export const ManagerTabs = () => (
   <Tabs
     tabs={[
-      { to: '/manager', ic: '📊', label: 'Tableau', end: true },
-      { to: '/manager/products', ic: '🏷️', label: 'Produits' },
-      { to: '/manager/orders', ic: '🧾', label: 'Commandes' },
-      { to: '/manager/store', ic: '🏪', label: 'Enseigne' },
+      { to: '/manager', icon: 'dashboard', label: 'Tableau', end: true },
+      { to: '/manager/products', icon: 'barcode', label: 'Produits' },
+      { to: '/manager/orders', icon: 'receipt', label: 'Commandes' },
+      { to: '/manager/store', icon: 'storefront', label: 'Enseigne' },
     ]}
   />
 )
@@ -61,12 +69,12 @@ export const ManagerTabs = () => (
 export const AdminTabs = () => (
   <Tabs
     tabs={[
-      { to: '/admin', ic: '📊', label: 'Vue', end: true },
-      { to: '/admin/orders', ic: '🧾', label: 'Commandes' },
-      { to: '/admin/stores', ic: '✅', label: 'Enseignes' },
-      { to: '/admin/drivers', ic: '🛵', label: 'Livreurs' },
-      { to: '/admin/finance', ic: '💸', label: 'Finances' },
-      { to: '/admin/config', ic: '⚙️', label: 'Réglages' },
+      { to: '/admin', icon: 'dashboard', label: 'Vue', end: true },
+      { to: '/admin/orders', icon: 'receipt', label: 'Commandes' },
+      { to: '/admin/stores', icon: 'verified', label: 'Enseignes' },
+      { to: '/admin/drivers', icon: 'moped', label: 'Livreurs' },
+      { to: '/admin/finance', icon: 'payments', label: 'Finances' },
+      { to: '/admin/config', icon: 'settings', label: 'Réglages' },
     ]}
   />
 )

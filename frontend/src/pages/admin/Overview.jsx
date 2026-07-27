@@ -45,7 +45,7 @@ export default function AdminOverview() {
             {/* Actions qui attendent l'admin */}
             {data.stuckDeliveries > 0 && (
               <div className="card" style={{ background: '#ffe3e3' }}>
-                <p className="section-title" style={{ marginTop: 0 }}>🚨 Livraisons figées</p>
+                <p className="section-title" style={{ marginTop: 0 }}>Livraisons figées</p>
                 <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                   {data.stuckDeliveries} livraison(s) en cours depuis plus de 3 h — livreur(s) suspendu(s) automatiquement,
                   vérifiez la situation (vol, panne, accident ?).
@@ -56,7 +56,7 @@ export default function AdminOverview() {
 
             {data.blockedCodes > 0 && (
               <div className="card" style={{ background: '#ffe3e3' }}>
-                <p className="section-title" style={{ marginTop: 0 }}>🔒 Codes de réception bloqués</p>
+                <p className="section-title" style={{ marginTop: 0 }}>Codes de réception bloqués</p>
                 <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                   {data.blockedCodes} commande(s) bloquée(s) après 5 tentatives de code — à vérifier avec le client.
                 </p>
@@ -98,7 +98,7 @@ export default function AdminOverview() {
                 style={{ background: '#fff7d6', color: 'var(--green-dark)' }}
               >
                 <p className="section-title" style={{ marginTop: 0 }}>
-                  ⏳ Enseignes à vérifier
+                  Enseignes à vérifier
                 </p>
                 <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                   {data.pendingStores} enseigne(s) en attente de vérification.
@@ -111,7 +111,7 @@ export default function AdminOverview() {
 
             {data.pendingDrivers > 0 && (
               <div className="card" style={{ background: '#fff7d6', color: 'var(--green-dark)' }}>
-                <p className="section-title" style={{ marginTop: 0 }}>🛵 Livreurs à vérifier</p>
+                <p className="section-title" style={{ marginTop: 0 }}>Livreurs à vérifier</p>
                 <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                   {data.pendingDrivers} livreur(s) en attente de vérification.
                 </p>
@@ -123,7 +123,7 @@ export default function AdminOverview() {
 
             {data.refundsPending > 0 && (
               <div className="card" style={{ background: '#ffe3e3', color: 'var(--red, #b00020)' }}>
-                <p className="section-title" style={{ marginTop: 0 }}>💸 Remboursements en attente</p>
+                <p className="section-title" style={{ marginTop: 0 }}>Remboursements en attente</p>
                 <p style={{ margin: '0 0 12px', fontSize: 14 }}>
                   {data.refundsPending} commande(s) annulée(s) à rembourser.
                 </p>
@@ -160,7 +160,7 @@ export default function AdminOverview() {
 
             <div className="card">
               <p className="section-title" style={{ marginTop: 0 }}>
-                💡 Modèle de commission
+                Modèle de commission
               </p>
               <p className="muted" style={{ margin: 0, fontSize: 14 }}>
                 La commission de 10% est ajoutée au total payé par le client et

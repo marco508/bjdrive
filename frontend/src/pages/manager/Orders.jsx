@@ -143,7 +143,7 @@ export default function ManagerOrders() {
                   <div className="badge" style={{ marginTop: 8 }}>📦 Prête{o.fulfillment !== 'PICKUP' ? ' — en attente du livreur' : ''}</div>
                 ) : (
                   <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
-                    📦 Marquer comme prête
+                    Marquer comme prête
                   </button>
                 )
               )}
@@ -154,7 +154,7 @@ export default function ManagerOrders() {
                   <div className="badge" style={{ marginTop: 8 }}>🤝 Remise au livreur confirmée</div>
                 ) : (
                   <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => handover(o.id)}>
-                    🤝 Confirmer la remise au livreur
+                    Confirmer la remise au livreur
                   </button>
                 )
               )}
@@ -171,7 +171,7 @@ export default function ManagerOrders() {
                     style={{ flex: 1 }}
                   />
                   <button className="btn small" disabled={busyId === o.id || !(codes[o.id] || '').trim()} onClick={() => completePickup(o.id)}>
-                    ✅ Remettre
+                    Remettre
                   </button>
                 </div>
               )}
