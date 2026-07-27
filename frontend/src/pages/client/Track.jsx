@@ -178,8 +178,7 @@ export default function Track() {
           </ul>
           <div className="divider" />
           <Row label="Sous-total" value={formatFCFA(order.subtotal)} />
-          <Row label="Livraison" value={formatFCFA(order.deliveryFee)} />
-          <Row label="Service (10%)" value={formatFCFA(order.commission)} />
+          <Row label="Livraison & service" value={formatFCFA(order.deliveryFee + order.commission)} detail={order} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
             <strong>Total</strong>
             <span className="price-total">{formatFCFA(order.total)}</span>
@@ -201,12 +200,37 @@ export default function Track() {
   )
 }
 
-function Row({ label, value }) {
+function Row({ label, value, detail }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 14 }}>
-      <span className="muted">{label}</span>
-      <span>{value}</span>
-    </div>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 14 }}>
+        <span className="muted">
+          {label}
+          {detail && (
+            <button
+              onClick={() => setOpen((o) => !o)}
+              style={{ border: 'none', background: 'none', color: 'var(--green-dark)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: '0 0 0 6px' }}
+            >
+              {open ? 'masquer' : 'voir le détail'}
+            </button>
+          )}
+        </span>
+        <span>{value}</span>
+      </div>
+      {detail && open && (
+        <div style={{ paddingLeft: 12, fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+            <span className="muted">· Livraison (distance)</span>
+            <span className="muted">{formatFCFA(detail.deliveryFee)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+            <span className="muted">· Frais de service BjDrive</span>
+            <span className="muted">{formatFCFA(detail.commission)}</span>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

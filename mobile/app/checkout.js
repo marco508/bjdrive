@@ -109,7 +109,7 @@ export default function Checkout() {
           <Text style={{ fontWeight: '800', fontSize: 18, color: C.greenDark }}>{formatFCFA(cartSubtotal)}</Text>
         </RowBetween>
         <Text style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>
-          Frais de livraison (distance) et service (10 %) ajoutés au total.
+          Frais de livraison et de service (selon la distance) ajoutés au total.
         </Text>
       </Card>
 

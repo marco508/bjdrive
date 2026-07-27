@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext.jsx'
 import { TopBar } from '../../components/ui.jsx'
 import { pushSupported, getPushStatus, enablePush, disablePush } from '../../lib/push.js'
+import { resetOnboarding } from '../../components/Onboarding.jsx'
 
 export default function Account() {
   const { user, logout, showToast } = useApp()
@@ -61,6 +62,14 @@ export default function Account() {
             </button>
           </div>
         )}
+
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>📖</span>
+          <div style={{ flex: 1, fontSize: 14 }}>Guide de prise en main</div>
+          <button className="btn small outline" onClick={() => { resetOnboarding(user?.role || 'CLIENT'); window.location.reload() }}>
+            Revoir
+          </button>
+        </div>
 
         <div className="card">
           <p className="section-title" style={{ marginTop: 0 }}>À propos</p>

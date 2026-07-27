@@ -139,7 +139,7 @@ export default function Checkout() {
             <span className="price-total">{formatFCFA(cartSubtotal)}</span>
           </div>
           <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-            Frais de livraison (selon la distance) et service (10 %) ajoutés à l'étape du paiement.
+            Frais de livraison et de service (selon la distance) ajoutés au total à l'étape suivante.
           </p>
         </div>
       </div>

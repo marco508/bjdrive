@@ -236,6 +236,31 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); bor
 .role-btn h3 { margin: 0; font-size: 16px; }
 .role-btn p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
 
+/* Guide de prise en main (première connexion) */
+.onboard-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(6, 32, 17, 0.62);
+  backdrop-filter: blur(3px);
+  display: grid; place-items: center;
+  padding: 20px;
+  animation: fade .25s ease;
+}
+.onboard-card {
+  background: var(--card);
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.35);
+  padding: 30px 26px 22px;
+  width: min(440px, 100%);
+  text-align: center;
+}
+.onboard-ic { font-size: 52px; }
+.onboard-card h2 { margin: 12px 0 8px; font-size: 21px; }
+.onboard-card p { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 0; min-height: 90px; }
+.onboard-dots { display: flex; justify-content: center; gap: 7px; margin: 18px 0; }
+.onboard-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all .2s; }
+.onboard-dots i.on { background: var(--green); width: 22px; border-radius: 5px; }
+.onboard-actions { display: flex; gap: 10px; }
+
 /* Misc */
 .center-empty { text-align: center; color: var(--muted); padding: 48px 20px; }
 .center-empty .big { font-size: 44px; margin-bottom: 8px; }

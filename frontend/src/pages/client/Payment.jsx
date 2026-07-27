@@ -64,6 +64,8 @@ export default function Payment() {
   }
 
   const { amount, breakdown } = data
+  // Livraison + service présentés en une seule ligne ; détail sur demande.
+  const feesTotal = breakdown.deliveryFee + breakdown.commission
 
   function payWithKkiapay() {
     if (!window.openKkiapayWidget) {
@@ -99,8 +101,7 @@ export default function Payment() {
         <div className="card">
           <p className="section-title" style={{ marginTop: 0 }}>Récapitulatif</p>
           <Row label="Produits" value={formatFCFA(breakdown.subtotal)} />
-          <Row label="Livraison" value={formatFCFA(breakdown.deliveryFee)} />
-          <Row label="Commission (10%)" value={formatFCFA(breakdown.commission)} />
+          <Row label="Livraison & service" value={formatFCFA(feesTotal)} detail={breakdown} />
           <div className="divider" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>Total</strong>
@@ -131,11 +132,36 @@ export default function Payment() {
   )
 }
 
-function Row({ label, value }) {
+function Row({ label, value, detail }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14 }}>
-      <span className="muted">{label}</span>
-      <span>{value}</span>
-    </div>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14 }}>
+        <span className="muted">
+          {label}
+          {detail && (
+            <button
+              onClick={() => setOpen((o) => !o)}
+              style={{ border: 'none', background: 'none', color: 'var(--green-dark)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', padding: '0 0 0 6px' }}
+            >
+              {open ? 'masquer' : 'voir le détail'}
+            </button>
+          )}
+        </span>
+        <span>{value}</span>
+      </div>
+      {detail && open && (
+        <div style={{ paddingLeft: 12, fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+            <span className="muted">· Livraison (distance)</span>
+            <span className="muted">{formatFCFA(detail.deliveryFee)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+            <span className="muted">· Frais de service BjDrive</span>
+            <span className="muted">{formatFCFA(detail.commission)}</span>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

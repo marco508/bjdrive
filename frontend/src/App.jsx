@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useApp } from './context/AppContext.jsx'
 import { ClientTabs, ManagerTabs, AdminTabs } from './components/ui.jsx'
+import Onboarding from './components/Onboarding.jsx'
 
 import Landing from './pages/Landing.jsx'
 import Auth from './pages/Auth.jsx'
@@ -55,6 +56,8 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {/* Guide de prise en main à la première connexion (par rôle) */}
+      {authReady && user && <Onboarding role={user.role} />}
       <Routes>
         <Route path="/" element={authReady && user ? <Navigate to={homeFor(user.role)} replace /> : <Landing />} />
         <Route path="/login" element={<Auth mode="login" />} />
