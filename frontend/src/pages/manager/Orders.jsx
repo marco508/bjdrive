@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox, StatusBadge } from '../../components/ui.jsx'
+import OrderChat from '../../components/OrderChat.jsx'
 import { STATUS_LABELS, STATUS_ICON } from '../../services/constants.js'
 import { formatFCFA } from '../../lib/geo.js'
 
@@ -21,10 +22,24 @@ export default function ManagerOrders() {
     setBusyId(orderId)
     try {
       await api.markStoreReady(orderId, store.id)
-      showToast('Commande marquée prête 📦 — le livreur est prévenu.')
+      showToast('Commande marquée prête 📦')
       ordersQ.reload()
     } catch (e) {
       showToast('Erreur : ' + e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const [codes, setCodes] = useState({})
+  async function completePickup(orderId) {
+    setBusyId(orderId)
+    try {
+      await api.completePickup(orderId, store.id, (codes[orderId] || '').trim())
+      showToast('Commande remise au client ✅')
+      ordersQ.reload()
+    } catch (e) {
+      showToast(e.message)
     } finally {
       setBusyId(null)
     }
@@ -103,15 +118,40 @@ export default function ManagerOrders() {
                 </strong>
               </div>
 
-              {/* Préparation : le manager signale que la commande est prête à être retirée */}
+              {o.fulfillment === 'PICKUP' && (
+                <div className="badge yellow" style={{ marginTop: 8 }}>🏪 Retrait sur place par le client</div>
+              )}
+
+              {/* Préparation : signaler que la commande est prête */}
               {['AWAITING_DRIVER', 'AWAITING_PICKUP'].includes(o.status) && !o.part?.pickedUpAt && (
                 o.part?.readyAt ? (
-                  <div className="badge" style={{ marginTop: 8 }}>📦 Prête — en attente du livreur</div>
+                  <div className="badge" style={{ marginTop: 8 }}>📦 Prête{o.fulfillment !== 'PICKUP' ? ' — en attente du livreur' : ''}</div>
                 ) : (
                   <button className="btn small outline" style={{ marginTop: 8 }} disabled={busyId === o.id} onClick={() => markReady(o.id)}>
                     📦 Marquer comme prête
                   </button>
                 )
+              )}
+
+              {/* Retrait sur place : validation avec le code du client */}
+              {o.fulfillment === 'PICKUP' && o.status === 'AWAITING_PICKUP' && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input
+                    placeholder="Code de réception du client"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={codes[o.id] || ''}
+                    onChange={(e) => setCodes((c) => ({ ...c, [o.id]: e.target.value.replace(/\D/g, '') }))}
+                    style={{ flex: 1 }}
+                  />
+                  <button className="btn small" disabled={busyId === o.id || !(codes[o.id] || '').trim()} onClick={() => completePickup(o.id)}>
+                    ✅ Remettre
+                  </button>
+                </div>
+              )}
+
+              {o.status !== 'PENDING_PAYMENT' && o.status !== 'CANCELLED' && (
+                <div style={{ marginTop: 10 }}><OrderChat orderId={o.id} /></div>
               )}
             </div>
           )

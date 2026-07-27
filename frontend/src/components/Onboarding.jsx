@@ -19,6 +19,12 @@ const GUIDES = {
     { ic: '🔐', title: 'Livrez et validez', text: 'À la remise, demandez au client son code de réception à 4 chiffres et saisissez-le : c’est ce qui valide la livraison et vos gains. Pour les commandes 💵 espèces, encaissez le montant indiqué.' },
     { ic: '💰', title: 'Vos gains', text: 'Vous gardez 100 % des frais de livraison. Suivez vos gains du jour et des 30 derniers jours sur votre tableau de bord. Un plafond de courses par jour s’applique — pour livrer bien, pas trop.' },
   ],
+  STAFF: [
+    { ic: '👋', title: 'Bienvenue dans l’équipe !', text: 'Votre compte employé est rattaché à votre enseigne. Vous gérez les produits, les stocks et les commandes des clients.' },
+    { ic: '📷', title: 'Le scanner de code-barres', text: 'Scannez le code-barres d’un produit (douchette sur le web, caméra sur mobile) : s’il existe, vous ajustez son stock en un geste ; sinon, vous l’ajoutez en quelques secondes. Chaque code est propre à votre enseigne.' },
+    { ic: '🧾', title: 'Préparez les commandes', text: 'Quand une commande arrive, préparez-la puis appuyez sur « Marquer comme prête ». Pour un retrait sur place, demandez au client son code de réception pour lui remettre ses courses.' },
+    { ic: '💬', title: 'Répondez aux clients', text: 'Chaque commande a sa discussion : le client peut vous poser des questions (rupture, remplacement…) — répondez-lui directement, le livreur voit aussi la conversation.' },
+  ],
   MANAGER: [
     { ic: '👋', title: 'Bienvenue sur BjDrive !', text: 'Vendez vos produits en ligne et faites-les livrer par nos livreurs vérifiés. Voici comment ouvrir votre boutique, en 1 minute.' },
     { ic: '🏪', title: 'Créez votre enseigne', text: 'Renseignez le nom, la catégorie, l’adresse et positionnez-la sur la carte. L’équipe BjDrive la vérifie (visite ou appel vidéo) avant qu’elle soit visible des clients — c’est ce qui fait la confiance.' },

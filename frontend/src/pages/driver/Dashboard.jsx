@@ -7,6 +7,7 @@ import { formatFCFA, getCurrentPosition, estimateEta, haversine } from '../../li
 import { onNewOrders } from '../../services/realtime.js'
 import { pushSupported, getPushStatus, enablePush } from '../../lib/push.js'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
+import OrderChat from '../../components/OrderChat.jsx'
 
 export default function DriverDashboard() {
   const { user, logout, showToast } = useApp()
@@ -457,6 +458,11 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
           </div>
         </>
       )}
+
+      {/* Discussion avec le client et l'enseigne */}
+      <div style={{ marginTop: 12 }}>
+        <OrderChat orderId={order.id} />
+      </div>
     </div>
   )
 }

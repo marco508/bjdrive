@@ -12,7 +12,7 @@ function ensure() {
 }
 
 // S'abonne à une commande. Renvoie une fonction de désabonnement.
-export function trackOrder(orderId, { onUpdate, onDriver } = {}) {
+export function trackOrder(orderId, { onUpdate, onDriver, onChat } = {}) {
   const s = ensure()
   const sub = () => s.emit('subscribeOrder', { orderId })
   if (s.connected) sub()
@@ -26,14 +26,20 @@ export function trackOrder(orderId, { onUpdate, onDriver } = {}) {
     if (!d || (d.orderId && d.orderId !== orderId)) return
     onDriver?.(d)
   }
+  const handleChat = (m) => {
+    if (!m || (m.orderId && m.orderId !== orderId)) return
+    onChat?.(m)
+  }
   s.on('orderUpdate', handleUpdate)
   s.on('driverLocation', handleDriver)
+  s.on('chatMessage', handleChat)
 
   return () => {
     s.emit('unsubscribeOrder', { orderId })
     s.off('connect', sub)
     s.off('orderUpdate', handleUpdate)
     s.off('driverLocation', handleDriver)
+    s.off('chatMessage', handleChat)
   }
 }
 

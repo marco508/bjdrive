@@ -22,6 +22,7 @@ import ManagerOrders from './pages/manager/Orders.jsx'
 import StoreSetup from './pages/manager/StoreSetup.jsx'
 
 import DriverDashboard from './pages/driver/Dashboard.jsx'
+import StaffDashboard from './pages/staff/Dashboard.jsx'
 
 import AdminOverview from './pages/admin/Overview.jsx'
 import AdminOrders from './pages/admin/Orders.jsx'
@@ -34,6 +35,7 @@ function homeFor(role) {
   if (role === 'MANAGER') return '/manager'
   if (role === 'DRIVER') return '/driver'
   if (role === 'SUPERADMIN') return '/admin'
+  if (role === 'STAFF') return '/staff'
   return '/client'
 }
 
@@ -82,6 +84,9 @@ export default function App() {
 
         {/* Livreur */}
         <Route path="/driver" element={<RequireRole role="DRIVER"><DriverDashboard /></RequireRole>} />
+
+        {/* Employé d'enseigne */}
+        <Route path="/staff" element={<RequireRole role="STAFF"><StaffDashboard /></RequireRole>} />
 
         {/* Super-admin */}
         <Route path="/admin" element={<RequireRole role="SUPERADMIN" tabs={<AdminTabs />}><AdminOverview /></RequireRole>} />

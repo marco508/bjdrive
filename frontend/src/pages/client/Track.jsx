@@ -5,6 +5,7 @@ import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Empty, Loader, ErrorBox } from '../../components/ui.jsx'
 import DeliveryMap from '../../components/DeliveryMap.jsx'
+import OrderChat from '../../components/OrderChat.jsx'
 import { trackOrder } from '../../services/realtime.js'
 import { STATUS_LABELS, STATUS_ICON, ORDER_FLOW } from '../../services/constants.js'
 import { formatFCFA, estimateEta } from '../../lib/geo.js'
@@ -40,6 +41,7 @@ export default function Track() {
 
   const status = order.status
   const stores = order.stores || []
+  const isPickup = order.fulfillment === 'PICKUP'
   const dest = { lat: order.destLat, lng: order.destLng }
   const origin = order.originLat != null ? { lat: order.originLat, lng: order.originLng }
     : stores[0]?.store ? { lat: stores[0].store.lat, lng: stores[0].store.lng } : null
@@ -72,9 +74,25 @@ export default function Track() {
         )}
 
         <div className="card" style={{ marginTop: status === 'IN_DELIVERY' ? 14 : 0, textAlign: 'center' }}>
-          <div style={{ fontSize: 40 }}>{STATUS_ICON[status]}</div>
-          <h2 style={{ margin: '6px 0 0' }}>{STATUS_LABELS[status]}</h2>
+          <div style={{ fontSize: 40 }}>{isPickup && status === 'AWAITING_PICKUP' ? '🏪' : STATUS_ICON[status]}</div>
+          <h2 style={{ margin: '6px 0 0' }}>
+            {isPickup && status === 'AWAITING_PICKUP' ? 'Préparation — à retirer sur place' : STATUS_LABELS[status]}
+          </h2>
         </div>
+
+        {isPickup && status !== 'CANCELLED' && status !== 'DELIVERED' && (
+          <div className="card" style={{ background: 'var(--green-soft)' }}>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              🏪 À retirer chez <strong>{stores[0]?.store?.name}</strong> — 📍 {stores[0]?.store?.address}
+              <br />
+              <span className="muted" style={{ fontSize: 13 }}>
+                Présentez votre code de réception à l'enseigne pour récupérer votre commande.
+              </span>
+            </p>
+          </div>
+        )}
+
+        {status !== 'CANCELLED' && status !== 'PENDING_PAYMENT' && <OrderChat orderId={order.id} />}
 
         {showCode && (
           <div className="card" style={{ textAlign: 'center', background: 'var(--green)', color: '#fff' }}>
@@ -139,7 +157,7 @@ export default function Track() {
           </div>
         )}
 
-        {status !== 'CANCELLED' && (
+        {status !== 'CANCELLED' && !isPickup && (
           <div className="card">
             <p className="section-title" style={{ marginTop: 0 }}>Progression</p>
             <ul className="timeline">

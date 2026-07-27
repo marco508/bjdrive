@@ -9,7 +9,7 @@ import { imageSrc } from '../../config.js'
 
 const CATEGORIES = ['Épicerie', 'Frais', 'Surgelés', 'Boissons', 'Boulangerie', 'Hygiène', 'Autres']
 const EMOJIS = ['🛍️', '🍚', '🛢️', '🥫', '🍗', '💧', '🥛', '🥖', '🥚', '🧀', '🧃', '🍝', '🧼', '🌾', '🌶️', '🐟', '🍬', '🥤', '🧻']
-const EMPTY = { name: '', emoji: '🛍️', category: 'Épicerie', price: '', stock: '', unit: 'pièce' }
+const EMPTY = { name: '', emoji: '🛍️', category: 'Épicerie', price: '', stock: '', unit: 'pièce', barcode: '' }
 
 export default function ManagerProducts() {
   const { showToast } = useApp()
@@ -76,6 +76,7 @@ export default function ManagerProducts() {
       price: p.price ?? '',
       stock: p.stock ?? '',
       unit: p.unit || 'pièce',
+      barcode: p.barcode || '',
     })
     setOpen(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -94,6 +95,7 @@ export default function ManagerProducts() {
       price: Number(form.price),
       stock: Number(form.stock) || 0,
       unit: form.unit || 'pièce',
+      barcode: form.barcode.trim() || undefined,
     }
     setBusy(true)
     try {
@@ -242,6 +244,10 @@ export default function ManagerProducts() {
                   <input type="number" min="0" value={form.stock} onChange={(e) => set('stock', e.target.value)} />
                 </label>
               </div>
+              <label className="field">
+                <span>Code-barres (optionnel — propre à votre enseigne)</span>
+                <input value={form.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="Scannez ou saisissez le code" />
+              </label>
               <button className="btn" disabled={busy}>{editing ? 'Enregistrer' : 'Ajouter le produit'}</button>
             </form>
           </div>

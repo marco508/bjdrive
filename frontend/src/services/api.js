@@ -188,6 +188,21 @@ export const api = {
   searchProducts: (q, lat, lng) =>
     get(`/products/search?q=${encodeURIComponent(q || '')}${lat != null && lng != null ? `&lat=${lat}&lng=${lng}` : ''}`, { auth: false }),
 
+  // ---------- Chat de commande (client + enseigne + livreur) ----------
+  orderMessages: (orderId) => get(`/orders/${orderId}/messages`),
+  sendOrderMessage: (orderId, body) => post(`/orders/${orderId}/messages`, { body }),
+
+  // ---------- Stats d'achat du client ----------
+  myStats: () => get('/orders/stats/mine'),
+
+  // ---------- Employés (staff) ----------
+  staffMyStore: () => get('/staff/my-store'),
+  listStaff: (storeId) => get(`/stores/${storeId}/staff`),
+  addStaff: (storeId, dto) => post(`/stores/${storeId}/staff`, dto),
+  removeStaff: (storeId, staffId) => del(`/stores/${storeId}/staff/${staffId}`),
+  findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
+  completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
+
   // ---------- Manager ----------
   myStores: () => get('/stores/mine'),
   myStore: (id) => get(`/stores/mine/${id}`),

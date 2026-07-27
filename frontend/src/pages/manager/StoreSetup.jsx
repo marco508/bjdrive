@@ -3,6 +3,92 @@ import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
 import { useAsync } from '../../components/useApi.js'
 import { TopBar, Loader, ErrorBox } from '../../components/ui.jsx'
+
+// Comptes employés : créés par le gérant, rattachés à SON enseigne.
+// Un employé se connecte avec son e-mail et gère produits, stocks et commandes.
+function StaffSection({ store, showToast }) {
+  const staffQ = useAsync(() => api.listStaff(store.id), [store.id])
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' })
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function add(e) {
+    e.preventDefault()
+    if (!form.name.trim() || !form.email.trim() || form.password.length < 6) {
+      return showToast('Nom, e-mail et mot de passe (6 caractères min) requis.')
+    }
+    setBusy(true)
+    try {
+      await api.addStaff(store.id, { ...form, phone: form.phone || undefined })
+      showToast('Compte employé créé ✅ Transmettez-lui ses identifiants.')
+      setForm({ name: '', email: '', password: '', phone: '' })
+      setOpen(false)
+      staffQ.reload()
+    } catch (err) {
+      showToast(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(s) {
+    if (!window.confirm(`Supprimer le compte employé de ${s.name} ?`)) return
+    try {
+      await api.removeStaff(store.id, s.id)
+      showToast('Employé retiré.')
+      staffQ.reload()
+    } catch (err) {
+      showToast(err.message)
+    }
+  }
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <p className="section-title" style={{ margin: 0 }}>👥 Mes employés</p>
+        <button type="button" className="btn small outline" onClick={() => setOpen((o) => !o)}>
+          {open ? '✕ Annuler' : '+ Ajouter'}
+        </button>
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+        Vos employés se connectent avec leur propre compte pour renseigner les produits (avec scanner de
+        code-barres sur mobile), gérer les stocks, préparer les commandes et répondre aux clients.
+      </p>
+
+      {open && (
+        <form onSubmit={add} style={{ marginTop: 8 }}>
+          <div className="row">
+            <label className="field"><span>Nom</span>
+              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></label>
+            <label className="field"><span>Téléphone (optionnel)</span>
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+229 ..." /></label>
+          </div>
+          <div className="row">
+            <label className="field"><span>E-mail de connexion</span>
+              <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></label>
+            <label className="field"><span>Mot de passe</span>
+              <input type="text" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="6 caractères min" /></label>
+          </div>
+          <button className="btn small" disabled={busy}>Créer le compte employé</button>
+        </form>
+      )}
+
+      <ErrorBox error={staffQ.error} onRetry={staffQ.reload} />
+      {(staffQ.data || []).map((s) => (
+        <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--line)', marginTop: 8 }}>
+          <div>
+            <strong style={{ fontSize: 14 }}>{s.name}</strong>
+            <div className="muted" style={{ fontSize: 12 }}>✉️ {s.email}{s.phone ? ` · 📞 ${s.phone}` : ''}</div>
+          </div>
+          <button type="button" className="btn danger small" onClick={() => remove(s)}>Retirer</button>
+        </div>
+      ))}
+      {!staffQ.loading && (staffQ.data || []).length === 0 && (
+        <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Aucun employé pour l'instant.</p>
+      )}
+    </div>
+  )
+}
 import { STORE_STATUS_LABELS } from '../../services/constants.js'
 import { getCurrentPosition } from '../../lib/geo.js'
 import { imageSrc } from '../../config.js'
@@ -148,6 +234,8 @@ export default function StoreSetup() {
             </label>
           </div>
         )}
+
+        {existing && <StaffSection store={existing} showToast={showToast} />}
 
         <form onSubmit={submit}>
           <label className="field">
