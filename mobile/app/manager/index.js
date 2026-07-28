@@ -104,7 +104,13 @@ export default function ManagerOrders() {
             <Text style={{ color: C.muted, fontSize: 13 }}>Votre reversement</Text>
             <Text style={{ fontWeight: '800', color: C.greenDark, fontSize: 16 }}>{formatFCFA(o.part?.payoutAmount ?? 0)}</Text>
           </RowBetween>
-          {o.fulfillment === 'PICKUP' && <Badge tone="yellow">🏪 Retrait sur place par le client</Badge>}
+          {o.fulfillment === 'PICKUP' && <Badge tone="yellow">Retrait sur place par le client</Badge>}
+
+          {o.paymentMethod === 'CASH' && o.fulfillment !== 'PICKUP' && (
+            <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>
+              Espèces collectées par le livreur — votre reversement est garanti par BjDrive.
+            </Text>
+          )}
 
           {['AWAITING_DRIVER', 'AWAITING_PICKUP'].includes(o.status) && !o.part?.pickedUpAt &&
             (o.part?.readyAt ? (

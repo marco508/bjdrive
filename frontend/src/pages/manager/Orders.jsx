@@ -134,7 +134,16 @@ export default function ManagerOrders() {
               </div>
 
               {o.fulfillment === 'PICKUP' && (
-                <div className="badge yellow" style={{ marginTop: 8 }}>🏪 Retrait sur place par le client</div>
+                <div className="badge yellow" style={{ marginTop: 8 }}>Retrait sur place par le client</div>
+              )}
+
+              {/* Rassurance : le reversement de l'enseigne est garanti par BjDrive,
+                  même quand le client paie en espèces au livreur. */}
+              {o.paymentMethod === 'CASH' && o.fulfillment !== 'PICKUP' && (
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Paiement en espèces collecté par le livreur — <strong style={{ color: 'var(--green-dark)' }}>votre
+                  reversement est garanti par BjDrive</strong>, quoi qu'il arrive.
+                </div>
               )}
 
               {/* Préparation : signaler que la commande est prête */}

@@ -5,11 +5,11 @@ import { useState } from 'react'
 const GUIDES = {
   CLIENT: [
     { ic: '👋', title: 'Bienvenue sur BjDrive !', text: 'Faites vos courses dans des enseignes vérifiées près de chez vous et faites-vous livrer à domicile. Voici comment ça marche, en 1 minute.' },
-    { ic: '📍', title: 'Trouvez vos enseignes', text: 'Autorisez la localisation : nous affichons les supermarchés, kiosques et pharmacies les plus proches. Vous pouvez aussi rechercher un produit précis pour comparer les prix entre enseignes.' },
-    { ic: '🧺', title: 'Remplissez votre panier', text: 'Ajoutez des produits — même de plusieurs enseignes à la fois. Un seul livreur fera la tournée et vous livrera tout en une seule fois.' },
-    { ic: '💳', title: 'Payez comme vous voulez', text: 'Mobile Money, Moov Money, carte bancaire… ou en espèces à la réception. Le total inclut les produits et les frais de livraison & service, sans surprise.' },
-    { ic: '🛵', title: 'Suivez votre livreur en direct', text: 'Après la commande, suivez la position du livreur sur la carte en temps réel avec son heure d’arrivée estimée. Vous pouvez l’appeler à tout moment.' },
-    { ic: '🔐', title: 'Le code de réception', text: 'Un code à 4 chiffres s’affiche dans votre suivi. Communiquez-le au livreur UNIQUEMENT à la remise de vos courses : c’est votre preuve de livraison. Ensuite, notez votre expérience ⭐.' },
+    { ic: '💵', title: 'Payez quand c’est dans vos mains', text: 'Aucun risque : vous pouvez payer en espèces À LA RÉCEPTION, seulement quand vos courses sont devant vous. Mobile Money et carte sont aussi disponibles si vous préférez payer d’avance.' },
+    { ic: '🔐', title: 'Votre code de sécurité', text: 'Un code à 4 chiffres s’affiche dans votre suivi. Personne ne peut prétendre vous avoir livré sans ce code : vous ne le donnez au livreur QUE quand vos courses sont remises.' },
+    { ic: '📍', title: 'Trouvez vos enseignes', text: 'Autorisez la localisation : nous affichons les supermarchés, kiosques et pharmacies les plus proches. Vous pouvez aussi rechercher un produit précis pour comparer les prix.' },
+    { ic: '🧺', title: 'Remplissez votre panier', text: 'Ajoutez des produits — même de plusieurs enseignes à la fois. Un seul livreur fera la tournée et vous livrera tout en une seule fois. Ou passez retirer sur place, sans frais.' },
+    { ic: '🛵', title: 'Suivez votre livreur en direct', text: 'Position du livreur sur la carte en temps réel, heure d’arrivée estimée, appel ou discussion à tout moment. Ensuite, notez votre expérience ⭐.' },
   ],
   DRIVER: [
     { ic: '👋', title: 'Bienvenue, livreur BjDrive !', text: 'Gagnez de l’argent en livrant les commandes des enseignes proches de vous. Voici l’essentiel avant votre première course.' },

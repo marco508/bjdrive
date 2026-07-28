@@ -86,6 +86,8 @@ services:
         VITE_SOCKET_URL: "${VITE_SOCKET_URL:-http://localhost:3007}"
         VITE_KKIAPAY_PUBLIC_KEY: "${VITE_KKIAPAY_PUBLIC_KEY:-}"
         VITE_GOOGLE_MAPS_API_KEY: "${VITE_GOOGLE_MAPS_API_KEY:-}"
+        # Numéro WhatsApp du support (ex: 22997000000, sans +) — masqué si vide
+        VITE_SUPPORT_WHATSAPP: "${VITE_SUPPORT_WHATSAPP:-}"
     container_name: bjdrive-web
     depends_on:
       - api

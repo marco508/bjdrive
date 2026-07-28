@@ -55,6 +55,7 @@ services:
         VITE_SOCKET_URL: "https://${SITE_ADDRESS:-bjdrive.dkpsolution.tech}"
         VITE_KKIAPAY_PUBLIC_KEY: "${KKIAPAY_PUBLIC_KEY:-}"
         VITE_GOOGLE_MAPS_API_KEY: "${VITE_GOOGLE_MAPS_API_KEY:-}"
+        VITE_SUPPORT_WHATSAPP: "${VITE_SUPPORT_WHATSAPP:-}"
     ports: !override
       - "127.0.0.1:8081:80"
     networks:

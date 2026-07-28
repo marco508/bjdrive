@@ -8,6 +8,7 @@ import Icon from '../../components/Icon.jsx'
 import AccountDanger from '../../components/AccountDanger.jsx'
 import { pushSupported, getPushStatus, enablePush, disablePush } from '../../lib/push.js'
 import { resetOnboarding } from '../../components/Onboarding.jsx'
+import WhatsAppSupport from '../../components/WhatsAppSupport.jsx'
 import { formatFCFA } from '../../lib/geo.js'
 
 export default function Account() {
@@ -122,6 +123,8 @@ export default function Account() {
             </button>
           </div>
         )}
+
+        <WhatsAppSupport text="Bonjour BjDrive, j’ai besoin d’aide avec mon compte 👋" />
 
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Icon name="menuBook" size={22} color="var(--green-dark)" />

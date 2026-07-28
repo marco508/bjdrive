@@ -9,6 +9,11 @@ export const API_URL = extra.apiUrl || 'https://bjdrive.dkpsolution.tech/api'
 export const SOCKET_URL = extra.socketUrl || 'https://bjdrive.dkpsolution.tech'
 export const WEB_URL = extra.webUrl || 'https://bjdrive.dkpsolution.tech'
 
+// Numéro WhatsApp du support (chiffres seuls) — liens masqués si absent.
+export const SUPPORT_WHATSAPP = String(extra.supportWhatsapp || '').replace(/\D/g, '')
+export const supportWhatsAppUrl = (text = 'Bonjour BjDrive 👋') =>
+  SUPPORT_WHATSAPP ? `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(text)}` : null
+
 // Origine de l'API sans /api — pour résoudre les URLs d'images (/uploads/...)
 export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '')
 export function imageSrc(url) {

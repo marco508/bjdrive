@@ -25,7 +25,13 @@ export default function Checkout() {
   const isPickup = fulfillment === 'PICKUP' && canPickup
 
   useEffect(() => {
-    api.publicConfig().then((c) => setAllowCash(!!c.allowCashOnDelivery)).catch(() => {})
+    api.publicConfig()
+      .then((c) => {
+        setAllowCash(!!c.allowCashOnDelivery)
+        // Confiance d'abord : paiement à la réception proposé par défaut.
+        if (c.allowCashOnDelivery) setPaymentMethod('CASH')
+      })
+      .catch(() => {})
   }, [])
 
   async function locate() {
@@ -114,12 +120,19 @@ export default function Checkout() {
         <Card>
           <SectionTitle>Mode de paiement</SectionTitle>
           {[
-            { key: 'KKIAPAY', label: '💳 Payer maintenant (Mobile Money / carte)' },
-            { key: 'CASH', label: '💵 Payer en espèces à la livraison' },
+            {
+              key: 'CASH',
+              label: isPickup ? 'Payer en espèces sur place au retrait' : 'Payer en espèces à la réception',
+              hint: 'Vous ne payez que quand vos courses sont dans vos mains.',
+            },
+            { key: 'KKIAPAY', label: 'Payer maintenant (Mobile Money / carte)' },
           ].map((opt) => (
-            <Pressable key={opt.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }} onPress={() => setPaymentMethod(opt.key)}>
+            <Pressable key={opt.key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8 }} onPress={() => setPaymentMethod(opt.key)}>
               <Text style={{ fontSize: 18 }}>{paymentMethod === opt.key ? '🔘' : '⚪'}</Text>
-              <Text style={{ fontSize: 14 }}>{opt.key === 'CASH' && isPickup ? '💵 Payer en espèces sur place au retrait' : opt.label}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14 }}>{opt.label}</Text>
+                {opt.hint && <Text style={{ color: C.muted, fontSize: 12 }}>{opt.hint}</Text>}
+              </View>
             </Pressable>
           ))}
         </Card>

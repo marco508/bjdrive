@@ -28,7 +28,8 @@
     "extra": {
       "apiUrl": "https://bjdrive.dkpsolution.tech/api",
       "socketUrl": "https://bjdrive.dkpsolution.tech",
-      "webUrl": "https://bjdrive.dkpsolution.tech"
+      "webUrl": "https://bjdrive.dkpsolution.tech",
+      "supportWhatsapp": ""
     }
   }
 }

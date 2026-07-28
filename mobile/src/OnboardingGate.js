@@ -7,10 +7,10 @@ import { C } from './theme'
 const GUIDES = {
   CLIENT: [
     { ic: '👋', title: 'Bienvenue sur BjDrive !', text: 'Faites vos courses dans des enseignes vérifiées près de chez vous et faites-vous livrer — ou passez les chercher. Voici comment ça marche.' },
+    { ic: '💵', title: 'Payez quand c’est dans vos mains', text: 'Aucun risque : payez en espèces À LA RÉCEPTION, seulement quand vos courses sont devant vous. Mobile Money et carte disponibles si vous préférez payer d’avance.' },
+    { ic: '🔐', title: 'Votre code de sécurité', text: 'Un code à 4 chiffres s’affiche dans votre suivi : personne ne peut prétendre vous avoir livré sans lui. Donnez-le au livreur (ou à l’enseigne pour un retrait) seulement à la remise.' },
     { ic: '📍', title: 'Trouvez vos enseignes', text: 'Autorisez la localisation : nous affichons les enseignes les plus proches, triées par distance.' },
-    { ic: '🧺', title: 'Remplissez votre panier', text: 'Ajoutez des produits, même de plusieurs enseignes : un seul livreur fait la tournée et vous livre tout.' },
-    { ic: '💳', title: 'Payez comme vous voulez', text: 'Mobile Money, carte… ou en espèces à la réception. Vous pouvez aussi choisir de retirer sur place, sans frais de livraison.' },
-    { ic: '🔐', title: 'Le code de réception', text: 'Un code à 4 chiffres s’affiche dans votre suivi : donnez-le au livreur (ou à l’enseigne pour un retrait) à la remise. Vous pouvez discuter avec l’enseigne et le livreur dans le chat de la commande.' },
+    { ic: '🧺', title: 'Panier et suivi en direct', text: 'Plusieurs enseignes dans un panier, un seul livreur pour la tournée, sa position en temps réel — et un chat pour lui parler ou parler à l’enseigne.' },
   ],
   DRIVER: [
     { ic: '👋', title: 'Bienvenue, livreur !', text: 'Gagnez de l’argent en livrant les commandes proches de vous.' },

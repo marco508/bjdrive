@@ -25,7 +25,14 @@ export default function Checkout() {
   const isPickup = fulfillment === 'PICKUP' && canPickup
 
   useEffect(() => {
-    api.publicConfig().then((c) => setAllowCash(!!c.allowCashOnDelivery)).catch(() => {})
+    api.publicConfig()
+      .then((c) => {
+        setAllowCash(!!c.allowCashOnDelivery)
+        // Confiance d'abord : le paiement à la réception est proposé par défaut
+        // (le client ne paie que quand ses courses sont dans ses mains).
+        if (c.allowCashOnDelivery) setPaymentMethod('CASH')
+      })
+      .catch(() => {})
   }, [])
 
   if (cartItems.length === 0) {
@@ -150,13 +157,18 @@ export default function Checkout() {
         {allowCash && (
           <div className="card" style={{ marginTop: 14 }}>
             <p className="section-title" style={{ marginTop: 0 }}>Mode de paiement</p>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0' }}>
+              <input type="radio" name="paymethod" checked={paymentMethod === 'CASH'} onChange={() => setPaymentMethod('CASH')} style={{ marginTop: 3 }} />
+              <span>
+                Payer en espèces {isPickup ? 'sur place au retrait' : 'à la réception'}
+                <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+                  Vous ne payez que quand vos courses sont dans vos mains.
+                </span>
+              </span>
+            </label>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
               <input type="radio" name="paymethod" checked={paymentMethod === 'KKIAPAY'} onChange={() => setPaymentMethod('KKIAPAY')} />
               <span>Payer maintenant (Mobile Money / Moov / carte)</span>
-            </label>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
-              <input type="radio" name="paymethod" checked={paymentMethod === 'CASH'} onChange={() => setPaymentMethod('CASH')} />
-              <span>Payer en espèces {isPickup ? 'sur place au retrait' : 'à la livraison'}</span>
             </label>
           </div>
         )}

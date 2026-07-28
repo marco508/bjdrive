@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Text, View, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Linking } from 'react-native'
 import { api } from '../../src/api'
+import { supportWhatsAppUrl } from '../../src/config'
 import { useApp } from '../../src/store'
 import { BioToggle } from '../../src/biolock'
 import DeleteAccount from '../../src/DeleteAccount'
@@ -32,6 +34,16 @@ export default function Account() {
         <Text style={{ color: C.muted }}>{user?.email}</Text>
         {user?.phone ? <Text style={{ color: C.muted }}>{user.phone}</Text> : null}
       </Card>
+
+      {supportWhatsAppUrl() && (
+        <Card>
+          <Btn
+            title="Une question ? Écrivez-nous sur WhatsApp"
+            variant="ghost"
+            onPress={() => Linking.openURL(supportWhatsAppUrl('Bonjour BjDrive, j’ai besoin d’aide 👋'))}
+          />
+        </Card>
+      )}
 
       <BioToggle />
 

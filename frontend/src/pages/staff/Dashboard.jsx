@@ -141,6 +141,12 @@ function OrdersTab({ store, ordersQ, showToast }) {
               )
             )}
 
+            {o.paymentMethod === 'CASH' && !isPickup && (
+              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                Espèces collectées par le livreur — le reversement de l'enseigne est garanti par BjDrive.
+              </div>
+            )}
+
             {!isPickup && o.status === 'AWAITING_PICKUP' && o.delivery && (
               o.part?.handedOverAt ? (
                 <div className="badge" style={{ marginBottom: 8 }}>🤝 Remise au livreur confirmée</div>
