@@ -10,11 +10,9 @@ export default function AdminOverview() {
   const nav = useNavigate()
   const { data, loading, error, reload } = useAsync(api.adminOverview, [])
 
-  const logoutBtn = <button className="pill" onClick={logout}>Quitter</button>
-
-  return (
+    return (
     <>
-      <TopBar title="BjDrive — Admin" subtitle="Vue d'ensemble" right={logoutBtn} />
+      <TopBar title="BjDrive — Admin" subtitle="Vue d'ensemble" />
       <div className="screen">
         {loading && <Loader kind="kpi" />}
         <ErrorBox error={error} onRetry={reload} />

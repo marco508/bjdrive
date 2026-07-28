@@ -174,7 +174,61 @@ function OrdersTab({ store, orders, reload }) {
   )
 }
 
+// File des ajustements en attente (le valideur tranche, l'employé suit les siens).
+function StockRequests({ store, canApprove, reload }) {
+  const [list, setList] = useState(null)
+  const load = useCallback(() => {
+    api.stockRequests(store.id, 'PENDING').then(setList).catch(() => setList([]))
+  }, [store.id])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (!list || list.length === 0) return null
+
+  async function decide(id, approved) {
+    try {
+      await api.decideStockRequest(id, approved)
+      Alert.alert(approved ? 'Validé' : 'Refusé', approved ? 'Ajustement appliqué au stock.' : 'La demande a été refusée.')
+      load()
+      await reload()
+    } catch (e) {
+      Alert.alert('Erreur', e.message)
+    }
+  }
+
+  return (
+    <Card style={{ borderLeftWidth: 4, borderLeftColor: C.yellow }}>
+      <Text style={{ fontWeight: '700', marginBottom: 6 }}>
+        {canApprove ? 'Ajustements de stock à valider' : 'Vos demandes en attente'}
+      </Text>
+      {list.map((r) => (
+        <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: C.line, paddingVertical: 8 }}>
+          <RowBetween>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '600', fontSize: 14 }}>{r.product?.emoji} {r.product?.name}</Text>
+              <Text style={{ color: C.muted, fontSize: 12 }}>
+                {r.requestedBy?.name} : {r.oldStock} → {r.newStock}
+              </Text>
+            </View>
+            {canApprove ? (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Btn title="Valider" style={{ paddingHorizontal: 12, paddingVertical: 8 }} onPress={() => decide(r.id, true)} />
+                <Btn title="Refuser" variant="danger" style={{ paddingHorizontal: 12, paddingVertical: 8 }} onPress={() => decide(r.id, false)} />
+              </View>
+            ) : (
+              <Badge tone="yellow">En attente</Badge>
+            )}
+          </RowBetween>
+        </View>
+      ))}
+    </Card>
+  )
+}
+
 function ProductsTab({ store, reload }) {
+  const { user } = useApp()
+  const canApprove = !!user?.staffCanApprove
   const [permission, requestPermission] = useCameraPermissions()
   const [scanning, setScanning] = useState(false)
   const [found, setFound] = useState(null)
@@ -230,11 +284,14 @@ function ProductsTab({ store, reload }) {
   }
 
   async function changeStock(p, delta) {
-    const next = Math.max(0, (p.stock || 0) + delta)
     try {
-      await api.updateProduct(p.id, { stock: next })
-      setFound((f) => (f?.product?.id === p.id ? { ...f, product: { ...f.product, stock: next } } : f))
-      await reload()
+      const res = await api.adjustStock(p.id, delta)
+      if (res.applied) {
+        setFound((f) => (f?.product?.id === p.id ? { ...f, product: res.product } : f))
+        await reload()
+      } else {
+        Alert.alert('Demande envoyée', 'Un valideur (gérant ou employé désigné) doit approuver cet ajustement de stock.')
+      }
     } catch (e) {
       Alert.alert('Erreur', e.message)
     }
@@ -242,6 +299,17 @@ function ProductsTab({ store, reload }) {
 
   return (
     <>
+      <StockRequests store={store} canApprove={canApprove} reload={reload} />
+
+      {!canApprove && (
+        <Card>
+          <Text style={{ color: C.muted, fontSize: 13 }}>
+            Vos ajustements de stock sont envoyés au gérant (ou à un valideur désigné) pour approbation —
+            seules les ventes décomptent le stock automatiquement.
+          </Text>
+        </Card>
+      )}
+
       <Card>
         <SectionTitle>📷 Scanner un code-barres</SectionTitle>
         <Text style={{ color: C.muted, fontSize: 13, marginBottom: 10 }}>

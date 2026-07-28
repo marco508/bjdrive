@@ -19,6 +19,8 @@ export default function ManagerProducts() {
 
   const productsQ = useAsync(() => (store ? api.myStore(store.id) : Promise.resolve(null)), [store?.id])
   const products = productsQ.data?.products || []
+  // File des ajustements de stock demandés par les employés non-valideurs.
+  const requestsQ = useAsync(() => (store ? api.stockRequests(store.id, 'PENDING') : Promise.resolve([])), [store?.id])
 
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
@@ -149,12 +151,21 @@ export default function ManagerProducts() {
   }
 
   async function changeStock(p, delta) {
-    const next = Math.max(0, (p.stock || 0) + delta)
     try {
-      await api.updateProduct(p.id, { stock: next })
+      await api.adjustStock(p.id, delta) // gérant : appliqué immédiatement
       await productsQ.reload()
     } catch (err) {
       showToast(err.message || 'Mise à jour impossible.')
+    }
+  }
+
+  async function decide(requestId, approved) {
+    try {
+      await api.decideStockRequest(requestId, approved)
+      showToast(approved ? 'Ajustement validé et appliqué.' : 'Ajustement refusé.')
+      await Promise.all([requestsQ.reload(), productsQ.reload()])
+    } catch (err) {
+      showToast(err.message)
     }
   }
 
@@ -194,6 +205,26 @@ export default function ManagerProducts() {
         }
       />
       <div className="screen">
+        {/* Ajustements de stock à valider (demandes des employés) */}
+        {(requestsQ.data || []).length > 0 && (
+          <div className="card" style={{ borderLeft: '4px solid var(--yellow)' }}>
+            <p className="section-title" style={{ marginTop: 0 }}>Ajustements de stock à valider</p>
+            {(requestsQ.data || []).map((r) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ fontSize: 14 }}>{r.product?.emoji} {r.product?.name}</strong>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {r.requestedBy?.name} propose : {r.oldStock} → <strong style={{ color: 'var(--green-dark)' }}>{r.newStock}</strong>
+                    {' '}(stock actuel : {r.product?.stock}) · {new Date(r.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                <button className="btn small" onClick={() => decide(r.id, true)}>Valider</button>
+                <button className="btn danger small" onClick={() => decide(r.id, false)}>Refuser</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {open && (
           <div className="card">
             <p className="section-title" style={{ marginTop: 0 }}>{editing ? 'Modifier le produit' : 'Nouveau produit'}</p>

@@ -75,12 +75,31 @@ function StaffSection({ store, showToast }) {
 
       <ErrorBox error={staffQ.error} onRetry={staffQ.reload} />
       {(staffQ.data || []).map((s) => (
-        <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--line)', marginTop: 8 }}>
-          <div>
-            <strong style={{ fontSize: 14 }}>{s.name}</strong>
-            <div className="muted" style={{ fontSize: 12 }}>✉️ {s.email}{s.phone ? ` · 📞 ${s.phone}` : ''}</div>
+        <div key={s.id} style={{ padding: '10px 0', borderTop: '1px solid var(--line)', marginTop: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ fontSize: 14 }}>{s.name}</strong>
+              {s.staffCanApprove && <span className="badge" style={{ marginLeft: 8 }}>Valideur de stock</span>}
+              <div className="muted" style={{ fontSize: 12 }}>{s.email}{s.phone ? ` · ${s.phone}` : ''}</div>
+            </div>
+            <button type="button" className="btn danger small" onClick={() => remove(s)}>Retirer</button>
           </div>
-          <button type="button" className="btn danger small" onClick={() => remove(s)}>Retirer</button>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, fontSize: 13, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={!!s.staffCanApprove}
+              onChange={async (e) => {
+                try {
+                  await api.setStaffApprover(store.id, s.id, e.target.checked)
+                  showToast(e.target.checked ? `${s.name} peut maintenant valider les stocks.` : `${s.name} ne valide plus les stocks.`)
+                  staffQ.reload()
+                } catch (err) {
+                  showToast(err.message)
+                }
+              }}
+            />
+            <span className="muted">Peut valider les ajustements de stock (et modifier sans validation)</span>
+          </label>
         </div>
       ))}
       {!staffQ.loading && (staffQ.data || []).length === 0 && (

@@ -113,6 +113,36 @@ model User {
   // Employé (role STAFF) : rattaché à UNE enseigne, dont il gère produits et commandes.
   staffStore   Store?  @relation("StoreStaff", fields: [staffStoreId], references: [id], onDelete: SetNull)
   staffStoreId String?
+  // Désigné par le gérant comme VALIDATEUR : peut approuver les modifications
+  // de stock demandées par les autres employés (et modifier sans validation).
+  staffCanApprove Boolean @default(false)
+
+  stockRequests  StockRequest[] @relation("StockRequestedBy")
+}
+
+// Demande de modification de stock d'un employé, à valider par le gérant
+// ou un employé validateur avant application.
+enum StockRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StockRequest {
+  id            String             @id @default(cuid())
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId     String
+  storeId       String
+  requestedBy   User               @relation("StockRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedById String
+  oldStock      Int
+  newStock      Int
+  status        StockRequestStatus @default(PENDING)
+  decidedById   String?
+  decidedAt     DateTime?
+  createdAt     DateTime           @default(now())
+
+  @@index([storeId, status])
 }
 
 // Jeton de rafraîchissement (rotation : un nouveau jeton révoque l'ancien).
@@ -234,6 +264,8 @@ model Product {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  stockRequests StockRequest[]
 
   @@unique([storeId, barcode])
   @@index([storeId])

@@ -128,6 +128,9 @@ export const api = {
   // Employé (staff) : enseigne rattachée, scan code-barres, retraits
   staffMyStore: () => get('/staff/my-store'),
   findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
+  adjustStock: (productId, delta, note) => post(`/products/${productId}/stock`, { delta, note }),
+  stockRequests: (storeId, status) => get(`/stores/${storeId}/stock-requests${status ? '?status=' + status : ''}`),
+  decideStockRequest: (requestId, approved) => post(`/stock-requests/${requestId}/decide`, { approved }),
   completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
   confirmHandover: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/handover`),
 

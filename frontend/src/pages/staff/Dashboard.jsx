@@ -24,7 +24,7 @@ export default function StaffDashboard() {
   if (storeQ.error || !store) {
     return (
       <>
-        <TopBar title="Espace employé" right={<button className="pill" onClick={logout}>Quitter</button>} />
+        <TopBar title="Espace employé" />
         <div className="screen"><ErrorBox error={storeQ.error || 'Aucune enseigne rattachée.'} onRetry={storeQ.reload} /></div>
       </>
     )
@@ -35,7 +35,7 @@ export default function StaffDashboard() {
       <TopBar
         title={`${store.emoji || '🏪'} ${store.name}`}
         subtitle={`Employé · ${user?.name?.split(' ')[0] || ''}`}
-        right={<button className="pill" onClick={logout}>Quitter</button>}
+       
       />
       <div className="screen">
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -175,9 +175,55 @@ function OrdersTab({ store, ordersQ, showToast }) {
   )
 }
 
+// File des ajustements en attente (visible du valideur ; l'employé voit les siens).
+function StockRequests({ store, canApprove, showToast, onChanged }) {
+  const requestsQ = useAsync(() => api.stockRequests(store.id, 'PENDING'), [store.id])
+  const list = requestsQ.data || []
+  if (list.length === 0) return null
+
+  async function decide(id, approved) {
+    try {
+      await api.decideStockRequest(id, approved)
+      showToast(approved ? 'Ajustement validé et appliqué.' : 'Ajustement refusé.')
+      requestsQ.reload()
+      onChanged?.()
+    } catch (e) {
+      showToast(e.message)
+    }
+  }
+
+  return (
+    <div className="card" style={{ borderLeft: '4px solid var(--yellow)' }}>
+      <p className="section-title" style={{ marginTop: 0 }}>
+        {canApprove ? 'Ajustements de stock à valider' : 'Vos demandes en attente'}
+      </p>
+      {list.map((r) => (
+        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ fontSize: 14 }}>{r.product?.emoji} {r.product?.name}</strong>
+            <div className="muted" style={{ fontSize: 12 }}>
+              {r.requestedBy?.name} : {r.oldStock} → <strong style={{ color: 'var(--green-dark)' }}>{r.newStock}</strong>
+            </div>
+          </div>
+          {canApprove ? (
+            <>
+              <button className="btn small" onClick={() => decide(r.id, true)}>Valider</button>
+              <button className="btn danger small" onClick={() => decide(r.id, false)}>Refuser</button>
+            </>
+          ) : (
+            <span className="badge yellow">En attente</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const EMPTY_FORM = { name: '', price: '', stock: '', unit: 'pièce', barcode: '' }
 
 function ProductsTab({ store, reload, showToast }) {
+  const { user } = useApp()
+  const canApprove = !!user?.staffCanApprove
   const [code, setCode] = useState('')
   const [found, setFound] = useState(null) // { found, product } après recherche
   const [form, setForm] = useState(EMPTY_FORM)
@@ -224,18 +270,34 @@ function ProductsTab({ store, reload, showToast }) {
     }
   }
 
+  // Ajustement de stock : appliqué directement si valideur/gérant, sinon
+  // transformé en DEMANDE que le gérant ou un valideur approuvera.
   async function changeStock(p, delta) {
-    const next = Math.max(0, (p.stock || 0) + delta)
     try {
-      await api.updateProduct(p.id, { stock: next })
-      reload()
+      const res = await api.adjustStock(p.id, delta)
+      if (res.applied) {
+        reload()
+      } else {
+        showToast('Demande envoyée — un valideur doit approuver cet ajustement.')
+      }
+      return res
     } catch (err) {
       showToast(err.message)
+      return null
     }
   }
 
   return (
     <>
+      <StockRequests store={store} canApprove={canApprove} showToast={showToast} onChanged={reload} />
+
+      {!canApprove && (
+        <div className="card" style={{ fontSize: 13, color: 'var(--muted)' }}>
+          Les ajustements de stock que vous saisissez sont envoyés au gérant (ou à un valideur désigné)
+          pour approbation — seules les ventes décomptent le stock automatiquement.
+        </div>
+      )}
+
       <div className="card">
         <p className="section-title" style={{ marginTop: 0 }}>Code-barres</p>
         <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
@@ -252,9 +314,9 @@ function ProductsTab({ store, reload, showToast }) {
             <strong>✅ {found.product.emoji || '🛍️'} {found.product.name}</strong>
             <div className="muted" style={{ fontSize: 13 }}>{formatFCFA(found.product.price)} / {found.product.unit} · Stock : {found.product.stock}</div>
             <div className="stepper" style={{ marginTop: 8 }}>
-              <button type="button" onClick={() => changeStock(found.product, -1).then(() => setFound((f) => ({ ...f, product: { ...f.product, stock: Math.max(0, f.product.stock - 1) } })))}>−</button>
+              <button type="button" onClick={() => changeStock(found.product, -1).then((res) => res?.applied && setFound((f) => ({ ...f, product: res.product })))}>−</button>
               <span className="n">{found.product.stock}</span>
-              <button type="button" onClick={() => changeStock(found.product, 1).then(() => setFound((f) => ({ ...f, product: { ...f.product, stock: f.product.stock + 1 } })))}>+</button>
+              <button type="button" onClick={() => changeStock(found.product, 1).then((res) => res?.applied && setFound((f) => ({ ...f, product: res.product })))}>+</button>
             </div>
           </div>
         )}

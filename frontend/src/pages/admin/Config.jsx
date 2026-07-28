@@ -37,9 +37,7 @@ export default function AdminConfig() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const logoutBtn = <button className="pill" onClick={logout}>Quitter</button>
-
-  async function save() {
+    async function save() {
     setSaving(true)
     try {
       await api.adminUpdateConfig({
@@ -63,7 +61,7 @@ export default function AdminConfig() {
 
   return (
     <>
-      <TopBar title="Réglages plateforme" right={logoutBtn} />
+      <TopBar title="Réglages plateforme" />
       <div className="screen">
         {loading && <Loader />}
         <ErrorBox error={error} onRetry={reload} />

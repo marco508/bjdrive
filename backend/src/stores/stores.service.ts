@@ -1,13 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { Prisma, Role, StoreStatus } from '@prisma/client'
+import { Prisma, Role, StockRequestStatus, StoreStatus } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 import { PrismaService } from '../prisma/prisma.service'
 import { GeoService } from '../common/geo.service'
+import { NotificationsService } from '../notifications/notifications.service'
 import { CreateStaffDto, CreateStoreDto, UpdateStoreDto, ProductDto, ImportProductsDto, UpdateProductDto } from './dto'
 
 @Injectable()
 export class StoresService {
-  constructor(private prisma: PrismaService, private geo: GeoService) {}
+  constructor(private prisma: PrismaService, private geo: GeoService, private notifications: NotificationsService) {}
 
   // ---- Catalogue public : uniquement les boutiques vérifiées ----
   async listPublic(params: { categoryId?: string; lat?: number; lng?: number; radius?: number }) {
@@ -90,6 +91,30 @@ export class StoresService {
     throw new ForbiddenException("Vous n'avez pas accès à cette boutique.")
   }
 
+  // Autorité sur le STOCK : le gérant, ou un employé désigné valideur.
+  // Les autres employés passent par une demande d'ajustement (validée avant application).
+  private async canManageStock(storeId: string, userId: string): Promise<boolean> {
+    const store = await this.prisma.store.findUnique({ where: { id: storeId }, select: { ownerId: true } })
+    if (store?.ownerId === userId) return true
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { staffStoreId: true, staffCanApprove: true },
+    })
+    return user?.staffStoreId === storeId && !!user.staffCanApprove
+  }
+
+  // Gérant + employés valideurs (destinataires des demandes à valider).
+  private async stockApproverIds(storeId: string): Promise<string[]> {
+    const [store, approvers] = await Promise.all([
+      this.prisma.store.findUnique({ where: { id: storeId }, select: { ownerId: true } }),
+      this.prisma.user.findMany({
+        where: { staffStoreId: storeId, role: Role.STAFF, staffCanApprove: true },
+        select: { id: true },
+      }),
+    ])
+    return [...(store ? [store.ownerId] : []), ...approvers.map((a) => a.id)]
+  }
+
   async updateStore(ownerId: string, id: string, dto: UpdateStoreDto) {
     await this.assertOwner(id, ownerId)
     const store = await this.prisma.store.update({ where: { id }, data: dto })
@@ -131,7 +156,14 @@ export class StoresService {
   }
 
   async updateProduct(userId: string, productId: string, dto: UpdateProductDto) {
-    await this.assertProductAccess(productId, userId)
+    const product = await this.assertProductAccess(productId, userId)
+    // Le stock ne se modifie pas librement : gérant/valideur uniquement
+    // (les employés passent par une demande d'ajustement).
+    if (dto.stock !== undefined && dto.stock !== product.stock && !(await this.canManageStock(product.storeId, userId))) {
+      throw new ForbiddenException(
+        "La modification du stock doit être validée : utilisez « Demander un ajustement » (le gérant ou un valideur approuvera).",
+      )
+    }
     try {
       return await this.prisma.product.update({
         where: { id: productId },
@@ -141,6 +173,108 @@ export class StoresService {
       if (e?.code === 'P2002') throw new BadRequestException('Ce code-barres est déjà utilisé par un autre produit de votre enseigne.')
       throw e
     }
+  }
+
+  // ---- Ajustements de stock (correction / réapprovisionnement) ----
+  // Gérant ou valideur → appliqué immédiatement. Employé → demande en attente,
+  // notifiée aux valideurs. Les VENTES restent automatiques (hors de ce flux).
+  async adjustStock(userId: string, productId: string, delta: number, note?: string) {
+    if (!Number.isInteger(delta) || delta === 0) throw new BadRequestException('Ajustement invalide.')
+    const product = await this.assertProductAccess(productId, userId)
+    const newStock = Math.max(0, product.stock + delta)
+
+    if (await this.canManageStock(product.storeId, userId)) {
+      const updated = await this.prisma.product.update({ where: { id: productId }, data: { stock: newStock } })
+      return { applied: true, product: updated }
+    }
+
+    // Une seule demande en attente par produit et par demandeur (anti-spam).
+    const existing = await this.prisma.stockRequest.findFirst({
+      where: { productId, requestedById: userId, status: StockRequestStatus.PENDING },
+    })
+    if (existing) {
+      throw new BadRequestException('Une demande est déjà en attente de validation pour ce produit.')
+    }
+    const request = await this.prisma.stockRequest.create({
+      data: { productId, storeId: product.storeId, requestedById: userId, oldStock: product.stock, newStock },
+      include: { requestedBy: { select: { name: true } }, product: { select: { name: true } } },
+    })
+    const approvers = await this.stockApproverIds(product.storeId)
+    this.notifications.sendToUsers(approvers, {
+      title: 'Ajustement de stock à valider',
+      body: `${request.requestedBy.name} propose ${product.name} : ${product.stock} → ${newStock}${note ? ` (${note})` : ''}.`,
+      url: '/manager/products',
+    })
+    return { applied: false, request }
+  }
+
+  // File des demandes (gérant / valideur). Un employé simple voit SES demandes.
+  async listStockRequests(userId: string, storeId: string, status: StockRequestStatus = StockRequestStatus.PENDING) {
+    await this.assertStoreAccess(storeId, userId)
+    const isApprover = await this.canManageStock(storeId, userId)
+    return this.prisma.stockRequest.findMany({
+      where: { storeId, status, ...(isApprover ? {} : { requestedById: userId }) },
+      include: {
+        product: { select: { id: true, name: true, emoji: true, stock: true, unit: true, barcode: true } },
+        requestedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    })
+  }
+
+  async decideStockRequest(userId: string, requestId: string, approved: boolean) {
+    const request = await this.prisma.stockRequest.findUnique({
+      where: { id: requestId },
+      include: { product: true, requestedBy: { select: { id: true, name: true } } },
+    })
+    if (!request) throw new NotFoundException('Demande introuvable.')
+    if (request.status !== StockRequestStatus.PENDING) throw new BadRequestException('Demande déjà traitée.')
+    if (!(await this.canManageStock(request.storeId, userId))) {
+      throw new ForbiddenException('Seul le gérant ou un valideur désigné peut trancher.')
+    }
+    if (approved) {
+      // Appliqué en DELTA par rapport au stock du moment : les ventes survenues
+      // entre la demande et la validation ne sont pas écrasées.
+      const delta = request.newStock - request.oldStock
+      const target = Math.max(0, request.product.stock + delta)
+      await this.prisma.$transaction([
+        this.prisma.product.update({ where: { id: request.productId }, data: { stock: target } }),
+        this.prisma.stockRequest.update({
+          where: { id: requestId },
+          data: { status: StockRequestStatus.APPROVED, decidedById: userId, decidedAt: new Date() },
+        }),
+      ])
+    } else {
+      await this.prisma.stockRequest.update({
+        where: { id: requestId },
+        data: { status: StockRequestStatus.REJECTED, decidedById: userId, decidedAt: new Date() },
+      })
+    }
+    this.notifications.sendToUser(request.requestedBy.id, {
+      title: approved ? 'Ajustement de stock validé' : 'Ajustement de stock refusé',
+      body: `${request.product.name} : ${request.oldStock} → ${request.newStock} — ${approved ? 'appliqué.' : 'refusé par un valideur.'}`,
+      url: '/staff',
+    })
+    return { ok: true, approved }
+  }
+
+  // Le gérant désigne (ou retire) un employé valideur de stock.
+  async setStaffApprover(ownerId: string, storeId: string, staffId: string, canApprove: boolean) {
+    await this.assertOwner(storeId, ownerId)
+    const staff = await this.prisma.user.findUnique({ where: { id: staffId } })
+    if (!staff || staff.staffStoreId !== storeId || staff.role !== Role.STAFF) {
+      throw new NotFoundException('Employé introuvable pour cette enseigne.')
+    }
+    await this.prisma.user.update({ where: { id: staffId }, data: { staffCanApprove: canApprove } })
+    this.notifications.sendToUser(staffId, {
+      title: canApprove ? 'Vous êtes valideur de stock' : 'Rôle de valideur retiré',
+      body: canApprove
+        ? 'Votre gérant vous a désigné pour valider les ajustements de stock.'
+        : 'Vous ne validez plus les ajustements de stock.',
+      url: '/staff',
+    })
+    return { ok: true, canApprove }
   }
 
   async removeProduct(userId: string, productId: string) {
@@ -163,7 +297,7 @@ export class StoresService {
     await this.assertOwner(storeId, ownerId)
     return this.prisma.user.findMany({
       where: { staffStoreId: storeId, role: Role.STAFF },
-      select: { id: true, name: true, email: true, phone: true, createdAt: true },
+      select: { id: true, name: true, email: true, phone: true, createdAt: true, staffCanApprove: true },
       orderBy: { createdAt: 'asc' },
     })
   }

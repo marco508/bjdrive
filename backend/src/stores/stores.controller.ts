@@ -108,6 +108,49 @@ export class StoresController {
     return this.stores.removeStaff(userId, id, staffId)
   }
 
+  // Désigner / retirer un employé VALIDEUR des ajustements de stock.
+  @Patch('stores/:id/staff/:staffId/approver')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER)
+  setStaffApprover(
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Param('staffId') staffId: string,
+    @Body() body: { canApprove: boolean },
+  ) {
+    return this.stores.setStaffApprover(userId, id, staffId, !!body?.canApprove)
+  }
+
+  // -------- Ajustements de stock (validés) --------
+  @Post('products/:productId/stock')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  adjustStock(
+    @CurrentUser('userId') userId: string,
+    @Param('productId') productId: string,
+    @Body() body: { delta: number; note?: string },
+  ) {
+    return this.stores.adjustStock(userId, productId, Number(body?.delta), body?.note)
+  }
+
+  @Get('stores/:id/stock-requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  stockRequests(@CurrentUser('userId') userId: string, @Param('id') id: string, @Query('status') status?: string) {
+    return this.stores.listStockRequests(userId, id, (status as any) || undefined)
+  }
+
+  @Post('stock-requests/:requestId/decide')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  decideStockRequest(
+    @CurrentUser('userId') userId: string,
+    @Param('requestId') requestId: string,
+    @Body() body: { approved: boolean },
+  ) {
+    return this.stores.decideStockRequest(userId, requestId, !!body?.approved)
+  }
+
   // L'enseigne de l'employé connecté.
   @Get('staff/my-store')
   @UseGuards(JwtAuthGuard, RolesGuard)

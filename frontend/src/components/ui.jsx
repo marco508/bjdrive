@@ -2,8 +2,11 @@ import { useNavigate, NavLink } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import Icon from './Icon.jsx'
 
+// Bandeau de page. La DÉCONNEXION est toujours accessible ici, quel que soit
+// le rôle et l'écran (en plus de la sidebar desktop).
 export function TopBar({ title, subtitle, back, right }) {
   const nav = useNavigate()
+  const { user, logout } = useApp()
   return (
     <div className="topbar">
       {back && <button className="back" onClick={() => nav(-1)} aria-label="Retour">‹</button>}
@@ -13,6 +16,16 @@ export function TopBar({ title, subtitle, back, right }) {
       </div>
       <div className="spacer" />
       {right}
+      {user && (
+        <button
+          className="pill logout-pill"
+          onClick={() => { logout(); nav('/') }}
+          title="Se déconnecter"
+          aria-label="Se déconnecter"
+        >
+          <Icon name="logout" size={16} />
+        </button>
+      )}
     </div>
   )
 }

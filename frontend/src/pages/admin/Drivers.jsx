@@ -52,7 +52,7 @@ export default function AdminDrivers() {
 
   return (
     <>
-      <TopBar title="Livreurs" subtitle="Vérification des comptes" right={<button className="pill" onClick={logout}>Quitter</button>} />
+      <TopBar title="Livreurs" subtitle="Vérification des comptes" />
       <div className="screen">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {FILTERS.map((f) => (

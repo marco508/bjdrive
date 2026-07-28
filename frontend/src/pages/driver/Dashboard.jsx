@@ -167,7 +167,7 @@ export default function DriverDashboard() {
       <TopBar
         title={`Livreur · ${user?.name?.split(' ')[0] || ''}`}
         subtitle="Zémidjan"
-        right={<button className="pill" onClick={logout}>Quitter</button>}
+       
       />
       <div className="screen">
         {/* Vérification du compte livreur */}

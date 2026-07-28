@@ -31,11 +31,26 @@ export default function ManagerProducts() {
     load()
   }, [load])
 
-  async function changeStock(p, delta) {
-    const next = Math.max(0, (p.stock || 0) + delta)
+  // File des ajustements demandés par les employés non-valideurs.
+  const [requests, setRequests] = useState([])
+  useEffect(() => {
+    if (store) api.stockRequests(store.id, 'PENDING').then(setRequests).catch(() => {})
+  }, [store])
+
+  async function decide(id, approved) {
     try {
-      await api.updateProduct(p.id, { stock: next })
-      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, stock: next } : x)))
+      await api.decideStockRequest(id, approved)
+      setRequests((l) => l.filter((r) => r.id !== id))
+      await load()
+    } catch (e) {
+      Alert.alert('Erreur', e.message)
+    }
+  }
+
+  async function changeStock(p, delta) {
+    try {
+      const res = await api.adjustStock(p.id, delta) // gérant : appliqué directement
+      if (res.applied) setProducts((list) => list.map((x) => (x.id === p.id ? res.product : x)))
     } catch (e) {
       Alert.alert('Erreur', e.message)
     }
@@ -49,6 +64,25 @@ export default function ManagerProducts() {
       refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
       ListHeaderComponent={
         <>
+          {requests.length > 0 && (
+            <Card style={{ borderLeftWidth: 4, borderLeftColor: C.yellow }}>
+              <Text style={{ fontWeight: '700', marginBottom: 6 }}>Ajustements de stock à valider</Text>
+              {requests.map((r) => (
+                <View key={r.id} style={{ borderTopWidth: 1, borderTopColor: C.line, paddingVertical: 8 }}>
+                  <RowBetween>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: '600', fontSize: 14 }}>{r.product?.emoji} {r.product?.name}</Text>
+                      <Text style={{ color: C.muted, fontSize: 12 }}>{r.requestedBy?.name} : {r.oldStock} → {r.newStock}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Btn title="Valider" style={{ paddingHorizontal: 12, paddingVertical: 8 }} onPress={() => decide(r.id, true)} />
+                      <Btn title="Refuser" variant="danger" style={{ paddingHorizontal: 12, paddingVertical: 8 }} onPress={() => decide(r.id, false)} />
+                    </View>
+                  </RowBetween>
+                </View>
+              ))}
+            </Card>
+          )}
           {error ? <ErrorBox error={error} onRetry={load} /> : null}
           {!products && !error ? <Loader /> : null}
           {products && !store ? (

@@ -32,9 +32,7 @@ export default function AdminStores() {
     [filter],
   )
 
-  const logoutBtn = <button className="pill" onClick={logout}>Quitter</button>
-
-  async function verify(store, dto) {
+    async function verify(store, dto) {
     setBusy(store.id)
     try {
       await api.adminVerifyStore(store.id, { ...dto, notes: notes[store.id] || '' })
@@ -90,7 +88,7 @@ export default function AdminStores() {
 
   return (
     <>
-      <TopBar title="Vérification des enseignes" right={logoutBtn} />
+      <TopBar title="Vérification des enseignes" />
       <div className="screen">
         <div
           style={{

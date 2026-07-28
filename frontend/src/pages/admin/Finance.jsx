@@ -64,7 +64,7 @@ export default function AdminFinance() {
 
   return (
     <>
-      <TopBar title="Finances" subtitle="Remboursements & versements" right={<button className="pill" onClick={logout}>Quitter</button>} />
+      <TopBar title="Finances" subtitle="Remboursements & versements" />
       <div className="screen">
         {/* ---- Remboursements à traiter ---- */}
         <p className="section-title">Remboursements à traiter</p>
