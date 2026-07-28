@@ -98,8 +98,43 @@ export function StatusBadge({ status, labels, icons }) {
   return <span className={cls}>{icons[status]} {labels[status]}</span>
 }
 
-export function Loader({ label = 'Chargement…' }) {
-  return <p className="muted" style={{ padding: 16 }}>{label}</p>
+// Squelettes de chargement animés (shimmer) — plus de « Chargement… » textuel.
+// kind: 'cards' (défaut, listes), 'kpi' (grilles de chiffres), 'rows' (lignes fines).
+export function Loader({ kind = 'cards', count = 3 }) {
+  if (kind === 'kpi') {
+    return (
+      <div className="kpi-grid" aria-busy="true">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="kpi">
+            <div className="sk" style={{ width: '55%', height: 24, marginBottom: 8 }} />
+            <div className="sk" style={{ width: '80%', height: 11 }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (kind === 'rows') {
+    return (
+      <div className="card" aria-busy="true">
+        {Array.from({ length: count * 2 }, (_, i) => (
+          <div key={i} className="sk" style={{ height: 14, marginBottom: 12, width: `${88 - (i % 3) * 14}%` }} />
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div aria-busy="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div className="sk" style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div className="sk" style={{ width: '55%', height: 15, marginBottom: 8 }} />
+            <div className="sk" style={{ width: '80%', height: 11 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function ErrorBox({ error, onRetry }) {

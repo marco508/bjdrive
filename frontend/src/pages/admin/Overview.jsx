@@ -16,7 +16,7 @@ export default function AdminOverview() {
     <>
       <TopBar title="BjDrive — Admin" subtitle="Vue d'ensemble" right={logoutBtn} />
       <div className="screen">
-        {loading && <Loader />}
+        {loading && <Loader kind="kpi" />}
         <ErrorBox error={error} onRetry={reload} />
 
         {!loading && !error && data && (
