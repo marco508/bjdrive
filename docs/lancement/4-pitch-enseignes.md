@@ -34,5 +34,5 @@ Tenir vos **prix et stocks à jour** (10 minutes par jour), et préparer les com
 
 ---
 
-**Contact BjDrive :** [Prénom du cousin] — [téléphone] · WhatsApp support : [numéro]
+**Contact BjDrive :** Loïc HOUNTONDJI — ____________________ · WhatsApp support : ____________________
 *Boutique vérifiée sous 48 h après la visite.*

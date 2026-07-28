@@ -1,25 +1,25 @@
 # Plan de lancement — 8 semaines
 
-*Objectif : un quartier qui commande, avant d'élargir. Todd = France (produit, finances, support en ligne) · [Prénom] = Bénin (terrain).*
+*Objectif : un quartier qui commande, avant d'élargir. Marc-Aurel = France (produit, finances, support en ligne) · Loïc = Bénin (terrain).*
 
 ## Semaines 1-2 — Préparation
 - [ ] Accord de partenariat signé (document 2), fixe du 1er mois versé
 - [ ] Application en production, testée ensemble : une vraie commande de bout en bout au Bénin
-- [ ] SIM béninoise dédiée → WhatsApp Business support (reliée à l'ordinateur de Todd)
-- [ ] Formation de [Prénom] sur les 4 espaces de l'application (2-3 visios) : il sait faire la démo enseigne en 3 min
+- [ ] SIM béninoise dédiée → WhatsApp Business support (reliée à l'ordinateur de Marc-Aurel)
+- [ ] Formation de Loïc sur les 4 espaces de l'application (2-3 visios) : il sait faire la démo enseigne en 3 min
 - [ ] Choix du quartier de lancement : ______________
 - [ ] Immatriculation de l'entreprise lancée (APIEx) — nécessaire pour le compte marchand KkiaPay
 - [ ] Kit imprimé : pitchs enseignes, contrats livreurs, checklists
 
 ## Semaines 3-4 — Le noyau livreurs
-- [ ] [Prénom] est le livreur n° 1 (compte vérifié, gilet)
+- [ ] Loïc est le livreur n° 1 (compte vérifié, gilet)
 - [ ] 2-3 zémidjans de confiance recrutés : CNI + contrat + caution + gilet + formation + livraison test
-- [ ] Gilets/badges produits ([5 000] F × [4])
+- [ ] Gilets/badges produits (5 000 F × 4)
 
 ## Semaines 4-6 — L'offre
-- [ ] 5 à 8 enseignes signées dans le quartier (dont le boutiquier habituel de [Prénom])
-- [ ] Chaque enseigne : checklist complète + validation en appel vidéo avec Todd
-- [ ] Catalogues saisis par Todd depuis les photos des rayons (photos = mission [Prénom])
+- [ ] 5 à 8 enseignes signées dans le quartier (dont le boutiquier habituel de Loïc)
+- [ ] Chaque enseigne : checklist complète + validation en appel vidéo avec Marc-Aurel
+- [ ] Catalogues saisis par Marc-Aurel depuis les photos des rayons (photos = mission Loïc)
 - [ ] Chaque gérant sait utiliser « Commande prête » et le chat
 
 ## Semaines 6-8 — Lancement doux

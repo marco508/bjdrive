@@ -6,8 +6,8 @@
 
 ### 1. Signer et vérifier les enseignes
 - Démarcher les boutiques du quartier avec le pitch (document 4) : commencer par ceux que tu connais.
-- **Vérifier chaque enseigne avant publication** (checklist document 6) : visite sur place, CNI du gérant, photos. La vérification finale se fait **en appel vidéo avec Todd**, qui valide dans l'application.
-- Aider le gérant à démarrer : photos des rayons et des prix (Todd saisit les catalogues à distance), création de ses comptes employés, explication du bouton « commande prête » et du chat.
+- **Vérifier chaque enseigne avant publication** (checklist document 6) : visite sur place, CNI du gérant, photos. La vérification finale se fait **en appel vidéo avec Marc-Aurel**, qui valide dans l'application.
+- Aider le gérant à démarrer : photos des rayons et des prix (Marc-Aurel saisit les catalogues à distance), création de ses comptes employés, explication du bouton « commande prête » et du chat.
 
 ### 2. Recruter et encadrer les livreurs
 - Recruter des zémidjans **que tu connais personnellement** : CNI photocopiée, contrat signé (document 5), caution encaissée, gilet remis.
@@ -19,8 +19,8 @@ Tu es le livreur n° 1 : tu éprouves l'application en conditions réelles, tu g
 
 ### 4. Gérer le cash et les incidents
 - Collecter les espèces des livreurs et **déposer sous 48 h** sur le compte dédié.
-- Premier niveau de réponse aux incidents terrain : commande bloquée, client absent, litige produit, accident. Tout incident grave = message à Todd **immédiatement**, pas le dimanche.
-- Participer aux versements du lundi (Todd calcule depuis l'application, tu exécutes/vérifies localement).
+- Premier niveau de réponse aux incidents terrain : commande bloquée, client absent, litige produit, accident. Tout incident grave = message à Marc-Aurel **immédiatement**, pas le dimanche.
+- Participer aux versements du lundi (Marc-Aurel calcule depuis l'application, tu exécutes/vérifies localement).
 
 ### 5. Faire la promotion locale
 - Chaque livraison réussie = une preuve : photos/vidéos (avec accord des gens) pour WhatsApp, TikTok, Facebook.
@@ -31,8 +31,8 @@ Tu es le livreur n° 1 : tu éprouves l'application en conditions réelles, tu g
 | Quand | Quoi |
 |---|---|
 | Chaque jour | Répondre aux demandes terrain ; déposer le cash collecté (≤ 48 h) |
-| [Dimanche soir] | Visio avec Todd : chiffres de la semaine, incidents, décisions |
-| [Lundi] | Versements aux enseignes et livreurs — jamais en retard |
+| Dimanche soir | Visio avec Marc-Aurel : chiffres de la semaine, incidents, décisions |
+| Lundi | Versements aux enseignes et livreurs — jamais en retard |
 
 ## Tes chiffres de réussite (suivis dans l'application)
 
@@ -44,4 +44,4 @@ Tu es le livreur n° 1 : tu éprouves l'application en conditions réelles, tu g
 
 ## Ce que tu N'AS PAS à gérer
 
-La technique (pannes, bugs, serveurs), le support en ligne de deuxième niveau, les remboursements KkiaPay, la comptabilité de la plateforme : c'est le travail de Todd. Si un gérant ou un client a un problème « application », tu le rediriges vers le WhatsApp support.
+La technique (pannes, bugs, serveurs), le support en ligne de deuxième niveau, les remboursements KkiaPay, la comptabilité de la plateforme : c'est le travail de Marc-Aurel. Si un gérant ou un client a un problème « application », tu le rediriges vers le WhatsApp support.

@@ -1,6 +1,6 @@
 # BjDrive — Présentation du projet
 
-*Document destiné à [Prénom NOM du cousin], futur Responsable des Opérations au Bénin.*
+*Document destiné à Loïc HOUNTONDJI, futur Responsable des Opérations de BjDrive au Bénin.*
 
 ## C'est quoi, BjDrive ?
 
@@ -37,7 +37,7 @@ Application client (web + mobile), espace livreur (courses proches, GPS, gains),
 
 ## La répartition des rôles
 
-- **Todd (France)** : le produit et la technique, les finances et versements, la stratégie, le support en ligne (WhatsApp).
+- **Marc-Aurel (France)** : le produit et la technique, les finances et versements, la stratégie, le support en ligne (WhatsApp).
 - **Toi (Bénin)** : le terrain — signer et vérifier les enseignes, recruter et encadrer les livreurs, livrer toi-même au début, gérer les incidents et le cash. **Tu es le visage de BjDrive au Bénin.**
 
 Le détail de ton rôle, de ta rémunération et de nos engagements mutuels est dans les documents suivants. Lis tout, note tes questions, et on en parle de vive voix.
