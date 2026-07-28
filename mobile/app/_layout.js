@@ -2,6 +2,7 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { AppProvider } from '../src/store'
 import { BioGate } from '../src/biolock'
+import HeaderLogout from '../src/HeaderLogout'
 import { C } from '../src/theme'
 
 export default function RootLayout() {
@@ -14,6 +15,8 @@ export default function RootLayout() {
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: '700' },
           contentStyle: { backgroundColor: C.bg },
+          // Déconnexion toujours accessible, sur tous les écrans connectés.
+          headerRight: () => <HeaderLogout />,
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

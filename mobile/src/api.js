@@ -150,6 +150,8 @@ export const api = {
 
   // Manager
   myStores: () => get('/stores/mine'),
+  listStaff: (storeId) => get(`/stores/${storeId}/staff`),
+  setStaffApprover: (storeId, staffId, canApprove) => patch(`/stores/${storeId}/staff/${staffId}/approver`, { canApprove }),
   myStore: (id) => get(`/stores/mine/${id}`),
   createStore: (dto) => post('/stores', dto),
   updateStore: (id, dto) => patch(`/stores/${id}`, dto),

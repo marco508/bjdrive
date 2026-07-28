@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
 import { C } from '../../src/theme'
 import OnboardingGate from '../../src/OnboardingGate'
+import HeaderLogout from '../../src/HeaderLogout'
 
 const icon = (name) => ({ color }) => <MaterialIcons name={name} size={24} color={color} />
 
@@ -17,6 +18,7 @@ export default function ManagerLayout() {
         tabBarActiveTintColor: C.green,
         tabBarInactiveTintColor: C.muted,
         sceneStyle: { backgroundColor: C.bg },
+        headerRight: () => <HeaderLogout />,
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Commandes', tabBarIcon: icon('receipt-long') }} />
