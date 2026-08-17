@@ -54,6 +54,8 @@ enum OrderStatus {
   AWAITING_PICKUP // acceptée par un livreur → en attente de récupération
   IN_DELIVERY // récupérée au magasin → en cours de livraison
   DELIVERED // reçue (code de réception validé)
+  RETURNING // livraison échouée (client absent/refus) → le livreur ramène aux enseignes
+  FAILED // retour confirmé par les enseignes — stock restitué, remboursement si prépayée
   CANCELLED
 }
 
@@ -353,6 +355,7 @@ model OrderStore {
   // Chaîne de responsabilité : l'enseigne confirme AVOIR REMIS les produits au livreur.
   handedOverAt DateTime?
   pickedUpAt   DateTime? // horodatage du retrait au magasin (côté livreur)
+  returnedAt   DateTime? // livraison échouée : l'enseigne confirme le retour de sa part
 
   @@unique([orderId, storeId])
   @@index([storeId])
@@ -382,6 +385,9 @@ model Delivery {
   deliveredAt DateTime?
   // Alerte « livraison figée » déjà traitée (suspension auto + notification admin)
   stuckNotifiedAt DateTime?
+  // Échec signalé par le livreur (client absent, refus de payer...) → retour enseigne
+  failedAt   DateTime?
+  failReason String?
 
   @@index([driverId])
 }
@@ -413,7 +419,7 @@ model Payment {
   order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId     String          @unique
   provider    PaymentProvider @default(KKIAPAY)
-  providerRef String? // transactionId KkiaPay
+  providerRef String? @unique // transactionId KkiaPay — une transaction ne paie qu'UNE commande
   amount      Int // total payé par le client
   status      PaymentStatus   @default(PENDING)
 
@@ -437,6 +443,9 @@ model Payout {
   user        User            @relation("PayoutBeneficiary", fields: [userId], references: [id], onDelete: Cascade)
   userId      String
   amount      Int // FCFA (peut être négatif : collecte d'espèces due par un livreur)
+  // Casquette concernée ('STORE' ou 'DRIVER') — un même utilisateur peut cumuler
+  // les deux rôles : sans cette précision le versement serait décompté deux fois.
+  role        String?
   provider    PaymentProvider @default(MTN_MOMO)
   reference   String? // référence de la transaction Mobile Money / virement
   note        String?
@@ -494,6 +503,8 @@ model AppConfig {
   // ---- Protection enseignes/litiges ----
   // Délai (jours) après livraison avant qu'un montant soit éligible au versement.
   payoutDelayDays         Int @default(3)
+  // Une commande en ligne jamais payée est annulée après ce délai (stock rendu).
+  pendingPaymentTtlMin    Int @default(45)
 
   currency           String  @default("XOF")
   updatedAt          DateTime @updatedAt

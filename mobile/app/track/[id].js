@@ -114,7 +114,7 @@ export default function Track() {
         </Card>
       )}
 
-      {status !== 'CANCELLED' && (
+      {!['CANCELLED', 'RETURNING', 'FAILED'].includes(status) && (
         <Card>
           <SectionTitle>Progression</SectionTitle>
           {ORDER_FLOW.map((stKey, i) => (
@@ -132,6 +132,19 @@ export default function Track() {
         <Card style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 32 }}>❌</Text>
           <Text>Cette commande a été annulée.</Text>
+          {order.paymentStatus === 'REFUND_PENDING' && <Text style={{ color: C.muted, fontSize: 13 }}>💸 Remboursement en cours de traitement.</Text>}
+          {order.paymentStatus === 'REFUNDED' && <Text style={{ color: C.muted, fontSize: 13 }}>✅ Vous avez été remboursé.</Text>}
+        </Card>
+      )}
+
+      {(status === 'RETURNING' || status === 'FAILED') && (
+        <Card style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: 32 }}>↩️</Text>
+          <Text style={{ textAlign: 'center' }}>
+            {status === 'RETURNING'
+              ? 'Le livreur n’a pas pu vous remettre la commande — elle retourne à l’enseigne.'
+              : 'Cette commande n’a pas pu être livrée.'}
+          </Text>
           {order.paymentStatus === 'REFUND_PENDING' && <Text style={{ color: C.muted, fontSize: 13 }}>💸 Remboursement en cours de traitement.</Text>}
           {order.paymentStatus === 'REFUNDED' && <Text style={{ color: C.muted, fontSize: 13 }}>✅ Vous avez été remboursé.</Text>}
         </Card>

@@ -210,6 +210,7 @@ export const api = {
   findByBarcode: (storeId, code) => get(`/stores/${storeId}/products/barcode/${encodeURIComponent(code)}`),
   completePickup: (orderId, storeId, code) => post(`/orders/${orderId}/store/${storeId}/complete-pickup`, { code }),
   confirmHandover: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/handover`),
+  confirmReturn: (orderId, storeId) => post(`/orders/${orderId}/store/${storeId}/return`),
 
   // ---------- Manager ----------
   myStores: () => get('/stores/mine'),
@@ -244,6 +245,7 @@ export const api = {
   acceptDelivery: (orderId) => post(`/deliveries/accept/${orderId}`),
   pickupStore: (orderId, storeId) => post(`/deliveries/${orderId}/pickup/${storeId}`),
   completeDelivery: (orderId, code) => post(`/deliveries/${orderId}/complete`, { code }),
+  failDelivery: (orderId, reason) => post(`/deliveries/${orderId}/fail`, { reason }),
   sendLocation: (lat, lng) => post('/deliveries/location', { lat, lng }),
   setAvailability: (isAvailable) => patch('/deliveries/availability', { isAvailable }),
 

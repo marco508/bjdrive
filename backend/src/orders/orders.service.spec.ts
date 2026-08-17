@@ -10,14 +10,19 @@ function makeService(overrides: any = {}) {
     product: {
       findMany: jest.fn().mockResolvedValue([PRODUCT]),
       update: jest.fn().mockResolvedValue({}),
+      // Décrément conditionnel (stock >= qty) : count=1 = succès.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     order: {
       create: jest.fn().mockImplementation(({ data }: any) => Promise.resolve({ ...created, ...data })),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      count: jest.fn().mockResolvedValue(0), // limite de commandes cash actives
     },
     orderStatusHistory: { create: jest.fn() },
-    delivery: { delete: jest.fn() },
+    delivery: { delete: jest.fn(), deleteMany: jest.fn().mockResolvedValue({ count: 1 }), findUnique: jest.fn().mockResolvedValue(null) },
+    orderStore: { findMany: jest.fn().mockResolvedValue([]) },
     review: { upsert: jest.fn() },
     store: { findUnique: jest.fn().mockResolvedValue(STORE), findMany: jest.fn().mockResolvedValue([{ ownerId: 'owner1' }]) },
     user: { findUnique: jest.fn().mockResolvedValue({ staffStoreId: null }), findMany: jest.fn().mockResolvedValue([]) },
@@ -53,12 +58,37 @@ describe('OrdersService.create', () => {
     expect(order.status).toBe('PENDING_PAYMENT')
   })
 
-  it('décrémente le stock des produits commandés', async () => {
+  it('décrémente le stock SOUS CONDITION (stock suffisant au moment T)', async () => {
     const { svc, prisma } = makeService()
     await svc.create('client1', DTO)
-    expect(prisma.product.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { stock: { decrement: 2 } } }),
-    )
+    expect(prisma.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 'p1', stock: { gte: 2 } },
+      data: { stock: { decrement: 2 } },
+    })
+  })
+
+  it('agrège les doublons du panier : 2× le même produit = une seule ligne, quantité cumulée', async () => {
+    const { svc, prisma } = makeService()
+    const order: any = await svc.create('client1', { ...DTO, items: [{ productId: 'p1', qty: 3 }, { productId: 'p1', qty: 4 }] })
+    expect(order.subtotal).toBe(21000) // 7 × 3000
+    expect(prisma.product.updateMany).toHaveBeenCalledTimes(1)
+    expect(prisma.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 'p1', stock: { gte: 7 } },
+      data: { stock: { decrement: 7 } },
+    })
+  })
+
+  it('refuse un panier dont le TOTAL par produit dépasse le stock (même en lignes séparées)', async () => {
+    const { svc } = makeService()
+    await expect(
+      svc.create('client1', { ...DTO, items: [{ productId: 'p1', qty: 6 }, { productId: 'p1', qty: 6 }] }),
+    ).rejects.toThrow(/Stock insuffisant/)
+  })
+
+  it('refuse la commande si un autre client a pris le stock entre-temps (course)', async () => {
+    const { svc, prisma } = makeService()
+    prisma.product.updateMany.mockResolvedValue({ count: 0 })
+    await expect(svc.create('client1', DTO)).rejects.toThrow(/Stock insuffisant/)
   })
 
   it('refuse un stock insuffisant', async () => {
@@ -77,6 +107,12 @@ describe('OrdersService.create', () => {
     const { svc } = makeService({ config: { allowCashOnDelivery: false } })
     await expect(svc.create('client1', { ...DTO, paymentMethod: 'CASH' })).rejects.toThrow(BadRequestException)
   })
+
+  it('limite les commandes cash actives par client', async () => {
+    const { svc, prisma } = makeService()
+    prisma.order.count.mockResolvedValue(3)
+    await expect(svc.create('client1', { ...DTO, paymentMethod: 'CASH' })).rejects.toThrow(/commandes en espèces en cours/)
+  })
 })
 
 describe('OrdersService.cancel', () => {
@@ -87,15 +123,17 @@ describe('OrdersService.cancel', () => {
     paymentStatus: 'PAID',
     items: [{ productId: 'p1', qty: 2 }],
     delivery: null,
+    stores: [],
   }
 
   it('commande payée → restitue le stock et déclenche le remboursement', async () => {
     const { svc, prisma, payments } = makeService()
     prisma.order.findUnique.mockResolvedValue(ORDER)
     const res: any = await svc.cancel('client1', 'o1')
-    expect(prisma.product.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { stock: { increment: 2 } } }),
-    )
+    expect(prisma.product.updateMany).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: { stock: { increment: 2 } },
+    })
     expect(payments.requestRefund).toHaveBeenCalledWith('o1')
     expect(res.refund).toEqual({ refunded: true })
   })
@@ -105,15 +143,31 @@ describe('OrdersService.cancel', () => {
     prisma.order.findUnique.mockResolvedValue({
       ...ORDER,
       status: 'AWAITING_PICKUP',
-      delivery: { driverId: 'driver1' },
+      delivery: { driverId: 'driver1', pickedUpAt: null },
     })
     await svc.cancel('client1', 'o1')
-    expect(prisma.delivery.delete).toHaveBeenCalledWith({ where: { orderId: 'o1' } })
+    expect(prisma.delivery.deleteMany).toHaveBeenCalledWith({ where: { orderId: 'o1' } })
   })
 
   it('refuse d’annuler une commande en cours de livraison', async () => {
     const { svc, prisma, payments } = makeService()
     prisma.order.findUnique.mockResolvedValue({ ...ORDER, status: 'IN_DELIVERY' })
+    await expect(svc.cancel('client1', 'o1')).rejects.toThrow(/ne peut plus être annulée/)
+    expect(payments.requestRefund).not.toHaveBeenCalled()
+  })
+
+  it('refuse d’annuler quand le livreur a déjà récupéré des produits', async () => {
+    const { svc, prisma, payments } = makeService()
+    prisma.order.findUnique.mockResolvedValue({ ...ORDER, status: 'AWAITING_PICKUP', delivery: { driverId: 'd1' } })
+    prisma.delivery.findUnique.mockResolvedValue({ pickedUpAt: new Date() })
+    await expect(svc.cancel('client1', 'o1')).rejects.toThrow(/déjà récupéré/)
+    expect(payments.requestRefund).not.toHaveBeenCalled()
+  })
+
+  it('double annulation simultanée → une seule passe (verrou updateMany)', async () => {
+    const { svc, prisma, payments } = makeService()
+    prisma.order.findUnique.mockResolvedValue(ORDER)
+    prisma.order.updateMany.mockResolvedValue({ count: 0 }) // l'autre appel a gagné
     await expect(svc.cancel('client1', 'o1')).rejects.toThrow(/ne peut plus être annulée/)
     expect(payments.requestRefund).not.toHaveBeenCalled()
   })

@@ -40,7 +40,9 @@ export default function AdminFinance() {
     }
   }
 
-  async function payout(user, suggested) {
+  // role : 'STORE' ou 'DRIVER' — la casquette du solde depuis lequel on verse
+  // (un même utilisateur peut être gérant ET livreur).
+  async function payout(user, suggested, role) {
     const raw = window.prompt(`Montant versé à ${user.name} (FCFA) — négatif pour un dépôt d'espèces :`, String(suggested))
     if (raw == null) return
     const amount = Math.trunc(Number(raw))
@@ -48,7 +50,7 @@ export default function AdminFinance() {
     const reference = window.prompt('Référence de la transaction (optionnel) :') || undefined
     setBusy(user.id)
     try {
-      await api.adminCreatePayout({ userId: user.id, amount, reference })
+      await api.adminCreatePayout({ userId: user.id, amount, reference, role })
       showToast('Versement enregistré ✅')
       await Promise.all([balancesQ.reload(), payoutsQ.reload()])
     } catch (e) {
@@ -118,8 +120,13 @@ export default function AdminFinance() {
                 ? `Verser sur : ${r.account.provider} ${r.account.accountRef}${r.account.holderName ? ` (${r.account.holderName})` : ''}`
                 : 'Aucun compte de versement renseigné par le gérant.'}
             </div>
+            {r.cashOwed > 0 && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Retraits payés en espèces : l'enseigne doit {formatFCFA(r.cashOwed)} de frais de service à BjDrive.
+              </div>
+            )}
             {r.available > 0 && (
-              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.available)}>
+              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.available, 'STORE')}>
                 Verser le disponible ({formatFCFA(r.available)})
               </button>
             )}
@@ -154,7 +161,7 @@ export default function AdminFinance() {
               </div>
             )}
             {r.balance !== 0 && (
-              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.balance)}>
+              <button className="btn small outline" style={{ marginTop: 8 }} disabled={busy === r.user.id} onClick={() => payout(r.user, r.balance < 0 ? r.balance : r.available, 'DRIVER')}>
                 Enregistrer un règlement
               </button>
             )}

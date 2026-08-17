@@ -111,7 +111,7 @@ export default function DriverDashboard() {
   }
 
   const deliveries = md?.deliveries || []
-  const active = deliveries.filter((d) => ['AWAITING_PICKUP', 'IN_DELIVERY'].includes(d.order?.status))
+  const active = deliveries.filter((d) => ['AWAITING_PICKUP', 'IN_DELIVERY', 'RETURNING'].includes(d.order?.status))
   const capReached = (md?.remaining ?? 1) <= 0
 
   return (
@@ -253,6 +253,28 @@ function ActiveDelivery({ d, onChanged }) {
     }
   }
 
+  // Livraison impossible : choix du motif, puis retour des produits aux enseignes.
+  function reportFailure() {
+    const send = async (reason) => {
+      setBusy(true)
+      try {
+        await api.failDelivery(order.id, reason)
+        await onChanged()
+        Alert.alert('Échec signalé', 'Ramenez les produits aux enseignes — elles confirmeront le retour.')
+      } catch (e) {
+        Alert.alert('Erreur', e.message)
+      } finally {
+        setBusy(false)
+      }
+    }
+    Alert.alert('Livraison impossible ?', 'Vous ramènerez les produits aux enseignes. Quel est le problème ?', [
+      { text: 'Client absent / injoignable', onPress: () => send('Client absent / injoignable') },
+      { text: 'Client refuse de payer', onPress: () => send('Client refuse de payer') },
+      { text: 'Adresse introuvable', onPress: () => send('Adresse introuvable') },
+      { text: 'Annuler', style: 'cancel' },
+    ])
+  }
+
   return (
     <Card>
       <RowBetween>
@@ -290,6 +312,22 @@ function ActiveDelivery({ d, onChanged }) {
         <View style={{ marginTop: 10 }}>
           <Field label="Code de réception (demandez au client)" value={code} onChangeText={(t) => setCode(t.replace(/\D/g, ''))} keyboardType="number-pad" maxLength={6} placeholder="0000" />
           <Btn title="✅ Valider la livraison" disabled={busy || !code} onPress={complete} />
+          <Btn title="Livraison impossible ?" variant="outline" style={{ marginTop: 8 }} disabled={busy} onPress={reportFailure} />
+        </View>
+      )}
+
+      {order.status === 'RETURNING' && (
+        <View style={{ marginTop: 10, borderLeftWidth: 4, borderLeftColor: '#e6a700', paddingLeft: 10 }}>
+          <Text style={{ fontWeight: '700' }}>Retour en cours</Text>
+          <Text style={{ color: C.muted, fontSize: 13, marginTop: 2 }}>
+            Ramenez les produits à chaque enseigne — elle confirmera le retour.
+          </Text>
+          {stores.map((os) => (
+            <RowBetween key={os.storeId} style={{ marginTop: 6 }}>
+              <Text style={{ flex: 1 }} numberOfLines={1}>{os.store?.emoji} {os.store?.name}</Text>
+              {os.returnedAt ? <Badge>✓ Retour confirmé</Badge> : <Badge tone="yellow">En attente</Badge>}
+            </RowBetween>
+          ))}
         </View>
       )}
 

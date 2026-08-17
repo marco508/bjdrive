@@ -17,13 +17,17 @@ AWAITING_DRIVER  → proposée aux livreurs proches       —
 AWAITING_PICKUP  → livreur accepté, enseigne prépare   → enseigne prépare (« prête »)
 IN_DELIVERY      → récupérée (remise tracée), ETA      —
 DELIVERED        → CODE DE RÉCEPTION validé (5 essais max) — par le livreur, ou l'enseigne pour un retrait
+RETURNING        → échec signalé par le livreur (client absent/refus) : retour des produits aux enseignes
+FAILED           → retours confirmés par chaque enseigne : stock restitué, remboursement si prépayée
 ```
+
+Filets automatiques : une commande en ligne **jamais payée expire** (stock rendu, TTL configurable) ; une course **acceptée jamais récupérée** est re-proposée aux autres livreurs ; une livraison **figée > 3 h** (marchandise en main, sans échec signalé) suspend le livreur et alerte l'admin.
 
 À chaque étape : position GPS diffusée en temps réel (et **persistée** comme preuve), **discussion privée** de la commande (client + équipe enseigne + livreur), notifications push, et **facture nominative par e-mail** à l'encaissement.
 
 ## Répartition des paiements
 
-Sur chaque commande payée : l'**enseigne** reçoit le montant des produits, le **livreur** les frais de livraison, la **plateforme** la commission (ajoutée au total client — affichée fusionnée dans « Livraison & service », détail sur demande). Montants ventilés dans `Payment` ; soldes calculés en continu avec **délai de litige configurable** avant éligibilité au versement ; versements manuels tracés (`Payout`) vers le compte Mobile Money vérifié. Commandes **cash** : le livreur encaisse, sa dette (total − ses frais) apparaît dans les soldes.
+Sur chaque commande payée : l'**enseigne** reçoit le montant des produits, le **livreur** les frais de livraison, la **plateforme** la commission (ajoutée au total client — affichée fusionnée dans « Livraison & service », détail sur demande). Montants ventilés dans `Payment` ; soldes calculés en continu avec **délai de litige configurable** avant éligibilité au versement ; versements manuels tracés (`Payout`) vers le compte Mobile Money vérifié. Commandes **cash** : le livreur encaisse, sa dette (total − ses frais) apparaît dans les soldes. **Retrait payé sur place** : l'enseigne encaisse tout et doit la commission à BjDrive (dette visible dans les soldes). Chaque transaction KkiaPay est **à usage unique** (liée à une seule commande), les versements sont **plafonnés au solde disponible** et ventilés par casquette (enseigne/livreur).
 
 ## Vérifications & anti-fraude
 

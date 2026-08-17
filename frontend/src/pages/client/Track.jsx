@@ -110,6 +110,26 @@ export default function Track() {
 
         {status === 'DELIVERED' && <ReviewCard order={order} onDone={reload} showToast={showToast} />}
 
+        {/* Livraison échouée : retour à l'enseigne puis clôture (remboursement si prépayée) */}
+        {(status === 'RETURNING' || status === 'FAILED') && (
+          <div className="card" style={{ textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 14 }}>
+              {status === 'RETURNING'
+                ? 'Le livreur n’a pas pu vous remettre la commande — elle retourne à l’enseigne.'
+                : 'Cette commande n’a pas pu être livrée.'}
+            </p>
+            {order.paymentStatus === 'REFUND_PENDING' && (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Remboursement en cours de traitement.</p>
+            )}
+            {order.paymentStatus === 'REFUNDED' && (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Vous avez été remboursé.</p>
+            )}
+            <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+              Une question ? Écrivez-nous dans la discussion de la commande.
+            </p>
+          </div>
+        )}
+
         {/* Enseignes de la tournée + état des retraits */}
         {stores.length > 0 && status !== 'CANCELLED' && (
           <div className="card">
@@ -158,7 +178,7 @@ export default function Track() {
           </div>
         )}
 
-        {status !== 'CANCELLED' && !isPickup && (
+        {!['CANCELLED', 'RETURNING', 'FAILED'].includes(status) && !isPickup && (
           <div className="card">
             <p className="section-title" style={{ marginTop: 0 }}>Progression</p>
             <ul className="timeline">

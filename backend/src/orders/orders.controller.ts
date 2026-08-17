@@ -83,6 +83,22 @@ export class OrdersController {
     return this.orders.confirmHandover(userId, id, storeId)
   }
 
+  // Livraison échouée : l'enseigne confirme le retour de sa part de commande.
+  @Post(':id/store/:storeId/return')
+  @UseGuards(RolesGuard)
+  @Roles(Role.MANAGER, Role.STAFF)
+  confirmReturn(@CurrentUser('userId') userId: string, @Param('id') id: string, @Param('storeId') storeId: string) {
+    return this.orders.confirmReturn(userId, id, storeId)
+  }
+
+  // Maintenance : force l'expiration des commandes non payées (sinon cron 10 min).
+  @Post('maintenance/expire-pending')
+  @UseGuards(RolesGuard)
+  @Roles(Role.SUPERADMIN)
+  expirePending() {
+    return this.orders.expireStalePendingOrders()
+  }
+
   // Retrait sur place : l'enseigne valide la remise avec le code du client.
   @Post(':id/store/:storeId/complete-pickup')
   @UseGuards(RolesGuard)

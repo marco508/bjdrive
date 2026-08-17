@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Cron, CronExpression } from '@nestjs/schedule'
 import { Fulfillment, OrderStatus, PaymentMethod, PaymentStatus, ReviewTarget, Role, StoreStatus } from '@prisma/client'
 import { randomInt } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
@@ -9,12 +10,16 @@ import { PaymentsService } from '../payments/payments.service'
 import { MailService } from '../mail/mail.service'
 import { tourDistance, Point } from '../common/distance'
 import { computeOrderAmounts } from '../common/pricing'
+import { MAX_CODE_ATTEMPTS } from '../common/constants'
 import { CreateOrderDto, ReviewDto, ScheduleDto } from './dto'
 
-const MAX_CODE_ATTEMPTS = 5
+// Un client ne peut pas accumuler les commandes en espèces non soldées :
+// chaque commande cash fait préparer l'enseigne à ses frais.
+const MAX_ACTIVE_CASH_ORDERS = 3
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger('Orders')
   constructor(
     private prisma: PrismaService,
     private settings: SettingsService,
@@ -54,28 +59,47 @@ export class OrdersService {
     if (paymentMethod === PaymentMethod.CASH && !cfg.allowCashOnDelivery) {
       throw new BadRequestException("Le paiement à la livraison n'est pas disponible actuellement.")
     }
+    if (paymentMethod === PaymentMethod.CASH) {
+      const activeCash = await this.prisma.order.count({
+        where: {
+          clientId,
+          paymentMethod: PaymentMethod.CASH,
+          status: { in: [OrderStatus.AWAITING_DRIVER, OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY, OrderStatus.RETURNING] },
+        },
+      })
+      if (activeCash >= MAX_ACTIVE_CASH_ORDERS) {
+        throw new BadRequestException(
+          `Vous avez déjà ${activeCash} commandes en espèces en cours — terminez-les avant d'en passer une nouvelle.`,
+        )
+      }
+    }
 
-    const productIds = [...new Set(dto.items.map((i) => i.productId))]
+    // Quantités AGRÉGÉES par produit : le même article présent deux fois dans le
+    // panier doit être contrôlé (et décrémenté) sur son TOTAL, pas ligne par ligne.
+    const qtyByProduct = new Map<string, number>()
+    for (const it of dto.items) qtyByProduct.set(it.productId, (qtyByProduct.get(it.productId) || 0) + it.qty)
+
+    const productIds = [...qtyByProduct.keys()]
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
       include: { store: true },
     })
     const byId = new Map(products.map((p) => [p.id, p]))
 
-    // Regroupe les articles par enseigne + valide.
+    // Regroupe les articles par enseigne + valide (une ligne par produit, quantité totale).
     const perStore = new Map<string, { store: any; subtotal: number; points: Point }>()
     const itemsData: any[] = []
     let subtotal = 0
-    for (const it of dto.items) {
-      const p = byId.get(it.productId)
-      if (!p || !p.active) throw new BadRequestException(`Produit indisponible: ${it.productId}`)
+    for (const [productId, qty] of qtyByProduct) {
+      const p = byId.get(productId)
+      if (!p || !p.active) throw new BadRequestException(`Produit indisponible: ${productId}`)
       if (p.store.status !== StoreStatus.VERIFIED || !p.store.active) {
         throw new BadRequestException(`Enseigne indisponible: ${p.store.name}`)
       }
-      if (p.stock < it.qty) throw new BadRequestException(`Stock insuffisant pour ${p.name} (reste ${p.stock}).`)
-      const line = p.price * it.qty
+      if (p.stock < qty) throw new BadRequestException(`Stock insuffisant pour ${p.name} (reste ${p.stock}).`)
+      const line = p.price * qty
       subtotal += line
-      itemsData.push({ storeId: p.storeId, storeName: p.store.name, productId: p.id, name: p.name, emoji: p.emoji, price: p.price, qty: it.qty })
+      itemsData.push({ storeId: p.storeId, storeName: p.store.name, productId: p.id, name: p.name, emoji: p.emoji, price: p.price, qty })
       const g = perStore.get(p.storeId) || { store: p.store, subtotal: 0, points: { lat: p.store.lat, lng: p.store.lng } }
       g.subtotal += line
       perStore.set(p.storeId, g)
@@ -111,8 +135,18 @@ export class OrdersService {
         : OrderStatus.PENDING_PAYMENT
 
     const order = await this.prisma.$transaction(async (tx) => {
-      for (const it of dto.items) {
-        await tx.product.update({ where: { id: it.productId }, data: { stock: { decrement: it.qty } } })
+      // Décrément CONDITIONNEL : si un autre client a pris la dernière unité
+      // entre la validation et cette transaction, la commande est refusée —
+      // le stock ne passe jamais en négatif.
+      for (const [productId, qty] of qtyByProduct) {
+        const upd = await tx.product.updateMany({
+          where: { id: productId, stock: { gte: qty } },
+          data: { stock: { decrement: qty } },
+        })
+        if (upd.count === 0) {
+          const p = byId.get(productId)
+          throw new BadRequestException(`Stock insuffisant pour ${p?.name || 'un produit'} — il vient d'être acheté.`)
+        }
       }
       const created = await tx.order.create({
         data: {
@@ -188,10 +222,16 @@ export class OrdersService {
       },
     })
     if (!order) throw new NotFoundException('Commande introuvable.')
+    // Un employé (STAFF) accède aux commandes de SON enseigne, comme le gérant.
+    let staffStoreId: string | null = null
+    if (role === 'STAFF') {
+      const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { staffStoreId: true } })
+      staffStoreId = u?.staffStoreId ?? null
+    }
     const involved =
       role === 'SUPERADMIN' ||
       order.clientId === userId ||
-      order.stores.some((os: any) => os.store.ownerId === userId) ||
+      order.stores.some((os: any) => os.store.ownerId === userId || (staffStoreId && os.storeId === staffStoreId)) ||
       order.delivery?.driverId === userId
     if (!involved) throw new ForbiddenException('Accès refusé.')
     // Le code de réception n'est montré qu'au client (et au super-admin).
@@ -238,6 +278,14 @@ export class OrdersService {
         title: 'Commande prête 📦',
         body: `${store.name} a préparé la commande, vous pouvez passer la récupérer.`,
         url: '/driver',
+      })
+    } else if (os.order.fulfillment === Fulfillment.PICKUP) {
+      // Retrait sur place : c'est le CLIENT qu'on prévient (promis à la confirmation du paiement).
+      this.notifications.sendToUser(os.order.clientId, {
+        title: 'Commande prête à retirer 🛍️',
+        body: `${store.name} a préparé votre commande — passez la retirer avec votre code de réception.`,
+        url: `/client/track/${orderId}`,
+        tag: `order-${orderId}`,
       })
     }
     return { ok: true, readyAt: updated.readyAt }
@@ -359,6 +407,10 @@ export class OrdersService {
     if (!order || order.clientId !== clientId) throw new NotFoundException('Commande introuvable.')
     if (order.status !== OrderStatus.IN_DELIVERY) throw new BadRequestException("Le créneau n'est modifiable qu'en cours de livraison.")
     if (order.scheduleModified) throw new BadRequestException('Vous avez déjà modifié le créneau une fois.')
+    const when = new Date(dto.scheduledDeliveryAt).getTime()
+    if (Number.isNaN(when) || when < Date.now() - 5 * 60 * 1000 || when > Date.now() + 7 * 24 * 3600 * 1000) {
+      throw new BadRequestException('Le créneau doit être entre maintenant et 7 jours.')
+    }
     const updated = await this.prisma.order.update({
       where: { id },
       data: { scheduledDeliveryAt: new Date(dto.scheduledDeliveryAt), scheduleModified: true },
@@ -368,19 +420,36 @@ export class OrdersService {
   }
 
   async cancel(clientId: string, id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true, delivery: true } })
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: true, delivery: true, stores: true },
+    })
     if (!order || order.clientId !== clientId) throw new NotFoundException('Commande introuvable.')
     const cancellable: OrderStatus[] = [OrderStatus.PENDING_PAYMENT, OrderStatus.AWAITING_DRIVER, OrderStatus.AWAITING_PICKUP]
     if (!cancellable.includes(order.status)) {
       throw new BadRequestException('Cette commande ne peut plus être annulée.')
     }
     await this.prisma.$transaction(async (tx) => {
+      // Marchandise déjà entre les mains du livreur → plus d'annulation possible
+      // (re-vérifié DANS la transaction pour couvrir une récupération simultanée).
+      const del = await tx.delivery.findUnique({ where: { orderId: id }, select: { pickedUpAt: true } })
+      const parts = await tx.orderStore.findMany({ where: { orderId: id }, select: { pickedUpAt: true, handedOverAt: true } })
+      if (del?.pickedUpAt || parts.some((p) => p.pickedUpAt || p.handedOverAt)) {
+        throw new BadRequestException('Le livreur a déjà récupéré des produits — contactez le support pour annuler.')
+      }
+      // Verrou : un seul appel bascule la commande (deux annulations simultanées
+      // ne restituent le stock et ne remboursent qu'UNE fois).
+      const locked = await tx.order.updateMany({
+        where: { id, status: { in: cancellable } },
+        data: { status: OrderStatus.CANCELLED },
+      })
+      if (locked.count === 0) throw new BadRequestException('Cette commande ne peut plus être annulée.')
       for (const it of order.items) {
-        await tx.product.update({ where: { id: it.productId }, data: { stock: { increment: it.qty } } }).catch(() => {})
+        // updateMany : ne casse pas la transaction si le produit a été supprimé.
+        await tx.product.updateMany({ where: { id: it.productId }, data: { stock: { increment: it.qty } } })
       }
       // Libère le livreur éventuellement assigné (son quota du jour aussi).
-      if (order.delivery) await tx.delivery.delete({ where: { orderId: id } })
-      await tx.order.update({ where: { id }, data: { status: OrderStatus.CANCELLED } })
+      if (order.delivery) await tx.delivery.deleteMany({ where: { orderId: id } })
       await tx.orderStatusHistory.create({ data: { orderId: id, status: OrderStatus.CANCELLED, byUserId: clientId } })
     })
     this.realtime.emitOrder(id, 'orderUpdate', { id, status: OrderStatus.CANCELLED })
@@ -439,5 +508,100 @@ export class OrdersService {
     if (ops.length === 0) throw new BadRequestException('Aucune note fournie.')
     await this.prisma.$transaction(ops)
     return { ok: true }
+  }
+
+  // ---- Livraison échouée : l'enseigne confirme le RETOUR de sa part ----
+  // (le livreur a signalé l'échec → statut RETURNING → il ramène les produits).
+  // Quand toutes les enseignes ont confirmé : stock restitué, commande FAILED,
+  // remboursement si elle était prépayée. La livraison n'est PAS comptée réussie.
+  async confirmReturn(userId: string, orderId: string, storeId: string) {
+    await this.assertStoreAccess(storeId, userId)
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, stores: true, delivery: true },
+    })
+    if (!order || !order.stores.some((os) => os.storeId === storeId)) throw new NotFoundException('Commande introuvable.')
+    if (order.status !== OrderStatus.RETURNING) throw new BadRequestException("Aucun retour n'est attendu sur cette commande.")
+
+    const finalized = await this.prisma.$transaction(async (tx) => {
+      // Verrou par enseigne : une seule confirmation restitue le stock de sa part.
+      const locked = await tx.orderStore.updateMany({
+        where: { orderId, storeId, returnedAt: null },
+        data: { returnedAt: new Date() },
+      })
+      if (locked.count === 0) return null // déjà confirmé par cette enseigne
+      for (const it of order.items.filter((i) => i.storeId === storeId)) {
+        await tx.product.updateMany({ where: { id: it.productId }, data: { stock: { increment: it.qty } } })
+      }
+      const remaining = await tx.orderStore.count({ where: { orderId, returnedAt: null } })
+      if (remaining > 0) return false
+      // Toutes les enseignes ont récupéré leur marchandise → clôture.
+      const done = await tx.order.updateMany({
+        where: { id: orderId, status: OrderStatus.RETURNING },
+        data: { status: OrderStatus.FAILED },
+      })
+      if (done.count === 0) return false
+      await tx.orderStatusHistory.create({ data: { orderId, status: OrderStatus.FAILED, byUserId: userId } })
+      return true
+    })
+
+    if (finalized === null) return { ok: true, alreadyConfirmed: true }
+    this.realtime.emitOrder(orderId, 'orderUpdate', { id: orderId, returnedStore: storeId, ...(finalized ? { status: OrderStatus.FAILED } : {}) })
+    if (finalized) {
+      // Prépayée → remboursement du client (auto si possible, sinon file admin).
+      let refund: { refunded: boolean } | null = null
+      if (order.paymentStatus === PaymentStatus.PAID) refund = await this.payments.requestRefund(orderId)
+      this.notifications.sendToUser(order.clientId, {
+        title: 'Commande non livrée',
+        body:
+          order.paymentStatus === PaymentStatus.PAID || refund
+            ? 'Votre commande n’a pas pu être livrée — son remboursement est en cours.'
+            : 'Votre commande n’a pas pu être livrée. N’hésitez pas à recommander.',
+        url: `/client/track/${orderId}`,
+        tag: `order-${orderId}`,
+      })
+      return { ok: true, finalized: true, refund }
+    }
+    return { ok: true, finalized: false }
+  }
+
+  // ---- Expiration des commandes en ligne jamais payées ----
+  // Le stock est réservé à la création : sans ce filet, un panier jamais payé
+  // séquestrerait les produits indéfiniment (et priverait l'enseigne de ventes).
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async expireStalePendingOrders() {
+    const cfg = await this.settings.get()
+    const ttlMin = (cfg as any).pendingPaymentTtlMin ?? 45
+    const cutoff = new Date(Date.now() - ttlMin * 60 * 1000)
+    const stale = await this.prisma.order.findMany({
+      where: { status: OrderStatus.PENDING_PAYMENT, createdAt: { lt: cutoff } },
+      include: { items: true },
+      take: 100,
+    })
+    for (const order of stale) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const locked = await tx.order.updateMany({
+            where: { id: order.id, status: OrderStatus.PENDING_PAYMENT },
+            data: { status: OrderStatus.CANCELLED },
+          })
+          if (locked.count === 0) return
+          for (const it of order.items) {
+            await tx.product.updateMany({ where: { id: it.productId }, data: { stock: { increment: it.qty } } })
+          }
+          await tx.orderStatusHistory.create({ data: { orderId: order.id, status: OrderStatus.CANCELLED } })
+        })
+        this.realtime.emitOrder(order.id, 'orderUpdate', { id: order.id, status: OrderStatus.CANCELLED })
+        this.notifications.sendToUser(order.clientId, {
+          title: 'Commande expirée',
+          body: 'Votre commande non payée a été annulée — vous pouvez recommander quand vous voulez.',
+          url: '/client/orders',
+        })
+      } catch (e) {
+        this.logger.error(`Expiration de la commande ${order.id} impossible`, e as any)
+      }
+    }
+    if (stale.length > 0) this.logger.log(`${stale.length} commande(s) non payée(s) expirée(s) (> ${ttlMin} min).`)
+    return { expired: stale.length }
   }
 }

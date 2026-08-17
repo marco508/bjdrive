@@ -110,6 +110,20 @@ function OrdersTab({ store, orders, reload }) {
     }
   }
 
+  // Livraison échouée : réceptionner le retour des produits (stock restitué).
+  async function confirmReturn(orderId) {
+    setBusyId(orderId)
+    try {
+      await api.confirmReturn(orderId, store.id)
+      Alert.alert('↩️', 'Retour confirmé — le stock est restitué.')
+      await reload()
+    } catch (e) {
+      Alert.alert('Erreur', e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (!orders) return <Loader />
   if (list.length === 0) return <Empty icon="🧾" title="Aucune commande" text="Les commandes clients s'afficheront ici." />
 
@@ -162,6 +176,13 @@ function OrdersTab({ store, orders, reload }) {
               <Btn title="✅ Remettre" style={{ paddingHorizontal: 14 }} disabled={busyId === o.id || !(codes[o.id] || '').trim()} onPress={() => completePickup(o.id)} />
             </View>
           )}
+
+          {o.status === 'RETURNING' &&
+            (o.part?.returnedAt ? (
+              <View style={{ marginTop: 8, alignSelf: 'flex-start' }}><Badge>↩️ Retour confirmé — stock restitué</Badge></View>
+            ) : (
+              <Btn title="↩️ Confirmer le retour des produits" style={{ marginTop: 8 }} disabled={busyId === o.id} onPress={() => confirmReturn(o.id)} />
+            ))}
 
           {o.status !== 'PENDING_PAYMENT' && o.status !== 'CANCELLED' && (
             <View style={{ marginTop: 10 }}>

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
-import { DriverStatus, StoreStatus } from '@prisma/client'
+import { DriverStatus, OrderStatus, Role, StoreStatus } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
@@ -19,11 +19,36 @@ export class UsersService {
     const ok = await bcrypt.compare(password || '', user.passwordHash)
     if (!ok) throw new BadRequestException('Mot de passe incorrect.')
 
-    // Toujours : sessions, abonnements push et comptes de versement supprimés.
+    // Jamais pendant une commande ou une livraison EN COURS : le code de
+    // réception (client) ou la marchandise (livreur) deviendraient orphelins.
+    const activeStatuses: OrderStatus[] = [
+      OrderStatus.AWAITING_DRIVER,
+      OrderStatus.AWAITING_PICKUP,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.RETURNING,
+    ]
+    const [activeOrders, activeDeliveries] = await Promise.all([
+      this.prisma.order.count({ where: { clientId: userId, status: { in: activeStatuses } } }),
+      this.prisma.delivery.count({
+        where: { driverId: userId, deliveredAt: null, order: { status: { in: activeStatuses } } },
+      }),
+    ])
+    if (activeOrders > 0) {
+      throw new BadRequestException('Vous avez une commande en cours — attendez sa livraison ou annulez-la avant de supprimer votre compte.')
+    }
+    if (activeDeliveries > 0) {
+      throw new BadRequestException('Vous avez une livraison en cours — terminez-la avant de supprimer votre compte.')
+    }
+    // Le dernier super-admin ne peut pas se supprimer (perte de la plateforme).
+    if (user.role === Role.SUPERADMIN) {
+      const admins = await this.prisma.user.count({ where: { role: Role.SUPERADMIN } })
+      if (admins <= 1) throw new BadRequestException('Impossible : vous êtes le dernier compte super-admin.')
+    }
+
+    // Toujours : sessions, abonnements push et jetons de réinitialisation supprimés.
     const cleanup = [
       this.prisma.refreshToken.deleteMany({ where: { userId } }),
       this.prisma.pushSubscription.deleteMany({ where: { userId } }),
-      this.prisma.paymentAccount.deleteMany({ where: { userId } }),
       this.prisma.passwordReset.deleteMany({ where: { userId } }),
     ]
     // Enseignes du gérant retirées de la vente ; profil livreur désactivé.
@@ -34,10 +59,12 @@ export class UsersService {
     await this.prisma.$transaction([...cleanup, ...sideEffects])
 
     try {
-      await this.prisma.user.delete({ where: { id: userId } })
+      await this.prisma.user.delete({ where: { id: userId } }) // comptes de versement supprimés en cascade
       return { ok: true, deleted: true }
     } catch {
-      // Historique relationnel → anonymisation irréversible.
+      // Historique relationnel → anonymisation irréversible. Les coordonnées de
+      // VERSEMENT sont conservées : un solde encore dû (enseigne/livreur) doit
+      // pouvoir être versé même après la fermeture du compte.
       await this.prisma.user.update({
         where: { id: userId },
         data: {

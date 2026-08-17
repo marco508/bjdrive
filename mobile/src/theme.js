@@ -18,6 +18,8 @@ export const STATUS_LABELS = {
   AWAITING_PICKUP: 'Livreur en route vers l’enseigne',
   IN_DELIVERY: 'En cours de livraison',
   DELIVERED: 'Livrée',
+  RETURNING: 'Retour à l’enseigne',
+  FAILED: 'Non livrée',
   CANCELLED: 'Annulée',
 }
 
@@ -27,6 +29,8 @@ export const STATUS_ICON = {
   AWAITING_PICKUP: '🏪',
   IN_DELIVERY: '🛵',
   DELIVERED: '✅',
+  RETURNING: '↩️',
+  FAILED: '⚠️',
   CANCELLED: '❌',
 }
 

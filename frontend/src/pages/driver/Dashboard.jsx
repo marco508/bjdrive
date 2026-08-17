@@ -144,6 +144,16 @@ export default function DriverDashboard() {
     }
   }
 
+  async function fail(orderId, reason) {
+    try {
+      await api.failDelivery(orderId, reason)
+      showToast('Échec signalé — ramenez les produits aux enseignes.')
+      await reloadAll()
+    } catch (e) {
+      showToast(e.message || 'Signalement impossible.')
+    }
+  }
+
   async function accept(orderId) {
     try {
       await api.acceptDelivery(orderId)
@@ -156,7 +166,7 @@ export default function DriverDashboard() {
 
   const deliveries = md?.deliveries || []
   const active = deliveries.filter((d) =>
-    ['AWAITING_PICKUP', 'IN_DELIVERY'].includes(d.order?.status)
+    ['AWAITING_PICKUP', 'IN_DELIVERY', 'RETURNING'].includes(d.order?.status)
   )
   const hasInDelivery = active.some((d) => d.order?.status === 'IN_DELIVERY')
   const remaining = md?.remaining ?? 0
@@ -275,6 +285,7 @@ export default function DriverDashboard() {
                 pos={pos}
                 onPickup={(storeId) => pickup(d.order.id, storeId)}
                 onComplete={(code) => complete(d.order.id, code)}
+                onFail={(reason) => fail(d.order.id, reason)}
               />
             ))}
           </>
@@ -375,9 +386,11 @@ export default function DriverDashboard() {
   )
 }
 
-function ActiveDelivery({ d, pos, onPickup, onComplete }) {
+function ActiveDelivery({ d, pos, onPickup, onComplete, onFail }) {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [failing, setFailing] = useState(false)
+  const [failReason, setFailReason] = useState('Client absent')
   const order = d.order
   const stores = order.stores || []
   const dest = { lat: order.destLat, lng: order.destLng }
@@ -473,8 +486,53 @@ function ActiveDelivery({ d, pos, onPickup, onComplete }) {
             >
               Valider la livraison
             </button>
+            {/* Échec de livraison : client absent, refus de payer... */}
+            {!failing ? (
+              <button className="btn small outline" style={{ marginTop: 10, width: '100%' }} onClick={() => setFailing(true)}>
+                Livraison impossible ?
+              </button>
+            ) : (
+              <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                <p className="muted" style={{ fontSize: 12, margin: '0 0 6px' }}>
+                  Vous ramènerez les produits aux enseignes, qui confirmeront le retour.
+                </p>
+                <select value={failReason} onChange={(e) => setFailReason(e.target.value)}>
+                  <option>Client absent / injoignable</option>
+                  <option>Client refuse de payer</option>
+                  <option>Adresse introuvable</option>
+                  <option>Autre problème</option>
+                </select>
+                <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                  <button
+                    className="btn small danger"
+                    disabled={busy}
+                    onClick={async () => { setBusy(true); try { await onFail(failReason) } finally { setBusy(false) } }}
+                  >
+                    Signaler l’échec
+                  </button>
+                  <button className="btn small outline" onClick={() => setFailing(false)}>Retour</button>
+                </div>
+              </div>
+            )}
           </div>
         </>
+      )}
+
+      {order.status === 'RETURNING' && (
+        <div style={{ marginTop: 12, borderLeft: '4px solid var(--yellow, #e6a700)', paddingLeft: 10 }}>
+          <strong>Retour en cours</strong>
+          <p className="muted" style={{ fontSize: 13, margin: '4px 0 0' }}>
+            Ramenez les produits à chaque enseigne — elle confirmera le retour dans son application.
+          </p>
+          <ul className="list-reset" style={{ marginTop: 8 }}>
+            {stores.map((os) => (
+              <li key={os.storeId} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                <span>{os.store?.emoji} {os.store?.name} <span className="muted">· {os.store?.address}</span></span>
+                {os.returnedAt ? <span className="badge">✓ Retour confirmé</span> : <span className="badge yellow">En attente</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* Discussion avec le client et l'enseigne */}

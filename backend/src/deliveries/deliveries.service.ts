@@ -8,9 +8,9 @@ import { RealtimeGateway } from '../realtime/realtime.gateway'
 import { NotificationsService } from '../notifications/notifications.service'
 import { MailService } from '../mail/mail.service'
 import { haversine } from '../common/distance'
+import { MAX_CODE_ATTEMPTS } from '../common/constants'
 
 const AVG_SPEED_KMH = 22 // vitesse moyenne d'un zémidjan en ville
-const MAX_CODE_ATTEMPTS = 5 // anti force brute sur le code de réception
 const STUCK_AFTER_HOURS = 3 // livraison sans issue depuis N heures → alerte + suspension
 const TRACK_MIN_INTERVAL_MS = 30_000 // un point GPS persisté toutes les 30 s max
 
@@ -315,6 +315,60 @@ export class DeliveriesService {
     return { ok: true }
   }
 
+  // ---- Livraison échouée (client absent, refus de payer, adresse introuvable) ----
+  // Le livreur le SIGNALE au lieu de rester bloqué (et d'être suspendu à tort par
+  // le filet anti-vol) : la commande passe en RETOUR, il ramène les produits aux
+  // enseignes qui confirment chacune la restitution (stock rendu, remboursement
+  // si prépayée). La livraison n'est pas comptée comme réussie pour sa confiance.
+  async reportFailure(driverId: string, orderId: string, reason?: string) {
+    const delivery = await this.assertDriverDelivery(driverId, orderId)
+    const order = delivery.order
+    if (order.status !== OrderStatus.IN_DELIVERY) {
+      throw new BadRequestException("Vous ne pouvez signaler un échec qu'en cours de livraison.")
+    }
+    const cleanReason = (reason || '').slice(0, 300) || 'Non précisé'
+    const applied = await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.order.updateMany({
+        where: { id: orderId, status: OrderStatus.IN_DELIVERY },
+        data: { status: OrderStatus.RETURNING },
+      })
+      if (locked.count === 0) return false
+      await tx.delivery.update({ where: { orderId }, data: { failedAt: new Date(), failReason: cleanReason } })
+      await tx.orderStatusHistory.create({ data: { orderId, status: OrderStatus.RETURNING, byUserId: driverId } })
+      return true
+    })
+    if (!applied) throw new BadRequestException('Cette commande a déjà changé d’état.')
+
+    this.realtime.emitOrder(orderId, 'orderUpdate', { id: orderId, status: OrderStatus.RETURNING })
+    // Enseigne(s) : préparez-vous à récupérer les produits.
+    const stores = await this.prisma.orderStore.findMany({
+      where: { orderId },
+      select: { storeId: true, store: { select: { ownerId: true } } },
+    })
+    const staff = await this.prisma.user.findMany({
+      where: { staffStoreId: { in: stores.map((s) => s.storeId) }, role: Role.STAFF },
+      select: { id: true },
+    })
+    this.notifications.sendToUsers([...stores.map((s) => s.store.ownerId), ...staff.map((s) => s.id)], {
+      title: 'Retour de commande 📦',
+      body: `Livraison impossible (${cleanReason}) — le livreur vous ramène les produits. Confirmez le retour à réception.`,
+      url: '/manager/orders',
+    })
+    this.notifications.sendToUser(order.clientId, {
+      title: 'Livraison impossible',
+      body: 'Le livreur n’a pas pu vous remettre la commande — elle retourne à l’enseigne. Contactez-nous si besoin.',
+      url: `/client/track/${orderId}`,
+      tag: `order-${orderId}`,
+    })
+    const admins = await this.prisma.user.findMany({ where: { role: Role.SUPERADMIN }, select: { id: true } })
+    this.notifications.sendToUsers(admins.map((a) => a.id), {
+      title: 'Livraison échouée',
+      body: `Commande ${orderId.slice(-6).toUpperCase()} : ${cleanReason}. Retour enseigne en cours.`,
+      url: '/admin/orders',
+    })
+    return { ok: true, status: OrderStatus.RETURNING }
+  }
+
   async updateLocation(driverId: string, lat: number, lng: number) {
     await this.prisma.driverProfile.upsert({
       where: { userId: driverId },
@@ -344,20 +398,71 @@ export class DeliveriesService {
   @Cron(CronExpression.EVERY_10_MINUTES)
   async watchStuckDeliveries() {
     const cutoff = new Date(Date.now() - STUCK_AFTER_HOURS * 3600 * 1000)
+    // Purge des traces GPS de plus de 30 jours — TOUJOURS exécutée (la rétention
+    // annoncée ne dépend pas de l'existence de livraisons figées).
+    await this.prisma.deliveryTrack.deleteMany({ where: { at: { lt: new Date(Date.now() - 30 * 24 * 3600 * 1000) } } }).catch(() => {})
+    // Nettoyage du throttle GPS en mémoire (évite une fuite lente).
+    const staleTrack = Date.now() - 24 * 3600 * 1000
+    for (const [orderId, ts] of this.lastTrackAt) if (ts < staleTrack) this.lastTrackAt.delete(orderId)
+
+    // Cas 1 : course ACCEPTÉE mais jamais récupérée (livreur disparu SANS
+    // marchandise) → on libère la commande pour les autres livreurs, pas de
+    // suspension (il n'a rien entre les mains).
+    const neverPicked = await this.prisma.delivery.findMany({
+      where: {
+        stuckNotifiedAt: null,
+        failedAt: null,
+        pickedUpAt: null,
+        deliveredAt: null,
+        acceptedAt: { lt: cutoff },
+        order: { status: OrderStatus.AWAITING_PICKUP },
+      },
+      include: { order: { select: { id: true, clientId: true } }, driver: { select: { id: true, name: true } } },
+    })
+    for (const d of neverPicked) {
+      // Si une enseigne a déjà remis/fait récupérer des produits, on traite
+      // comme une livraison figée (marchandise en main) — pas une libération.
+      const handled = await this.prisma.orderStore.count({
+        where: { orderId: d.orderId, OR: [{ pickedUpAt: { not: null } }, { handedOverAt: { not: null } }] },
+      })
+      if (handled > 0) continue // le filtre « figée » ci-dessous le couvrira via pickedUpAt du Delivery ou l'admin
+      await this.prisma.$transaction(async (tx) => {
+        const del = await tx.delivery.deleteMany({ where: { orderId: d.orderId, pickedUpAt: null } })
+        if (del.count === 0) return
+        await tx.order.updateMany({
+          where: { id: d.orderId, status: OrderStatus.AWAITING_PICKUP },
+          data: { status: OrderStatus.AWAITING_DRIVER },
+        })
+        await tx.orderStatusHistory.create({ data: { orderId: d.orderId, status: OrderStatus.AWAITING_DRIVER } })
+      })
+      this.logger.warn(`Course ${d.orderId} jamais récupérée par ${d.driver.name} → commande libérée pour les autres livreurs.`)
+      this.realtime.emitOrder(d.orderId, 'orderUpdate', { id: d.orderId, status: OrderStatus.AWAITING_DRIVER })
+      this.realtime.emitDrivers('newOrderAvailable', { orderId: d.orderId })
+      this.notifications.sendToUser(d.driverId, {
+        title: 'Course retirée',
+        body: `Vous n'avez pas récupéré la commande acceptée il y a plus de ${STUCK_AFTER_HOURS} h — elle a été proposée à d'autres livreurs.`,
+        url: '/driver',
+      })
+      this.notifications.sendToUser(d.order.clientId, {
+        title: 'Nouveau livreur recherché',
+        body: 'Votre commande a été re-proposée aux livreurs disponibles.',
+        url: `/client/track/${d.orderId}`,
+      })
+    }
+
+    // Cas 2 : marchandise RÉCUPÉRÉE et livraison sans issue (hors échec signalé)
+    // → suspicion de vol/accident : suspension + alerte admin.
     const stuck = await this.prisma.delivery.findMany({
       where: {
         stuckNotifiedAt: null,
+        failedAt: null, // un échec signalé suit le parcours RETOUR, pas la suspension
         pickedUpAt: { lt: cutoff },
         deliveredAt: null,
         order: { status: OrderStatus.IN_DELIVERY },
       },
       include: { order: { select: { id: true, clientId: true, total: true } }, driver: { select: { id: true, name: true } } },
     })
-    if (stuck.length === 0) {
-      // Purge des traces GPS de plus de 30 jours (au fil de l'eau).
-      await this.prisma.deliveryTrack.deleteMany({ where: { at: { lt: new Date(Date.now() - 30 * 24 * 3600 * 1000) } } }).catch(() => {})
-      return
-    }
+    if (stuck.length === 0) return
     const admins = await this.prisma.user.findMany({ where: { role: Role.SUPERADMIN }, select: { id: true } })
     for (const d of stuck) {
       await this.prisma.$transaction([

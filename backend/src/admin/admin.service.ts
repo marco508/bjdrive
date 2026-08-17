@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
-import { DriverStatus, OrderStatus, PaymentMethod, PaymentStatus, StoreStatus } from '@prisma/client'
+import { DriverStatus, Fulfillment, OrderStatus, PaymentMethod, PaymentStatus, Role, StoreStatus } from '@prisma/client'
+import { MAX_CODE_ATTEMPTS } from '../common/constants'
 import { PrismaService } from '../prisma/prisma.service'
 import { SettingsService } from '../common/settings.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -134,16 +135,19 @@ export class AdminService {
     return updated
   }
 
-  suspendDriver(userId: string, suspended: boolean) {
-    return this.prisma.driverProfile.update({
+  async suspendDriver(userId: string, suspended: boolean) {
+    const upd = await this.prisma.driverProfile.updateMany({
       where: { userId },
       data: { status: suspended ? DriverStatus.SUSPENDED : DriverStatus.VERIFIED },
     })
+    if (upd.count === 0) throw new NotFoundException('Profil livreur introuvable.')
+    return { ok: true, suspended }
   }
 
   // Débloque le code de réception d'une commande (après trop de tentatives).
   async resetCodeAttempts(orderId: string) {
-    await this.prisma.order.update({ where: { id: orderId }, data: { codeAttempts: 0 } })
+    const upd = await this.prisma.order.updateMany({ where: { id: orderId }, data: { codeAttempts: 0 } })
+    if (upd.count === 0) throw new NotFoundException('Commande introuvable.')
     return { ok: true }
   }
 
@@ -203,7 +207,16 @@ export class AdminService {
         where: { order: { status: OrderStatus.DELIVERED, paymentStatus: PaymentStatus.PAID } },
         select: {
           payoutAmount: true,
-          order: { select: { updatedAt: true } },
+          pickedUpAt: true, // horodatage de la remise (retrait sur place)
+          order: {
+            select: {
+              updatedAt: true,
+              paymentMethod: true,
+              fulfillment: true,
+              commission: true,
+              delivery: { select: { deliveredAt: true } },
+            },
+          },
           store: { select: { id: true, name: true, owner: { select: { id: true, name: true, email: true, phone: true } } } },
         },
       }),
@@ -216,21 +229,37 @@ export class AdminService {
           order: { select: { paymentMethod: true, paymentStatus: true, total: true, deliveryFee: true } },
         },
       }),
-      this.prisma.payout.groupBy({ by: ['userId'], _sum: { amount: true } }),
+      // Ventilé par casquette : un gérant qui est AUSSI livreur ne doit pas voir
+      // un même versement soustrait de ses deux soldes.
+      this.prisma.payout.groupBy({ by: ['userId', 'role'], _sum: { amount: true } }),
       this.prisma.paymentAccount.findMany({
         where: { isDefault: true },
         select: { userId: true, provider: true, accountRef: true, holderName: true },
       }),
     ])
-    const paidByUser = new Map(payouts.map((p) => [p.userId, p._sum.amount || 0]))
+    // role null (versements historiques) : compté sur les deux casquettes, comme avant.
+    const paidFor = (userId: string, role: 'STORE' | 'DRIVER') =>
+      payouts
+        .filter((p) => p.userId === userId && (p.role === role || p.role == null))
+        .reduce((s, p) => s + (p._sum.amount || 0), 0)
     const accountByUser = new Map(accounts.map((a) => [a.userId, a]))
 
     const stores = new Map<string, any>()
     for (const part of storeParts) {
       const owner = part.store.owner
-      const row = stores.get(owner.id) || { user: owner, storeNames: new Set<string>(), earned: 0, pending: 0 }
-      row.earned += part.payoutAmount
-      if (part.order.updatedAt > holdCutoff) row.pending += part.payoutAmount
+      const row =
+        stores.get(owner.id) || { user: owner, storeNames: new Set<string>(), earned: 0, pending: 0, cashOwed: 0 }
+      // Fenêtre de litige : basée sur la date de REMISE réelle (livraison ou
+      // retrait), pas sur updatedAt qui bouge à chaque écriture sur la commande.
+      const settledAt = part.order.delivery?.deliveredAt ?? part.pickedUpAt ?? part.order.updatedAt
+      if (part.order.paymentMethod === PaymentMethod.CASH && part.order.fulfillment === Fulfillment.PICKUP) {
+        // Retrait payé en espèces : l'ENSEIGNE a encaissé produits + frais de
+        // service — BjDrive ne lui doit rien, elle doit la commission à BjDrive.
+        row.cashOwed += part.order.commission
+      } else {
+        row.earned += part.payoutAmount
+        if (settledAt > holdCutoff) row.pending += part.payoutAmount
+      }
       row.storeNames.add(part.store.name)
       stores.set(owner.id, row)
     }
@@ -251,8 +280,8 @@ export class AdminService {
     return {
       payoutDelayDays: cfg.payoutDelayDays,
       stores: [...stores.values()].map((r) => {
-        const paidOut = paidByUser.get(r.user.id) || 0
-        const balance = r.earned - paidOut
+        const paidOut = paidFor(r.user.id, 'STORE')
+        const balance = r.earned - r.cashOwed - paidOut
         return {
           ...r,
           storeNames: [...r.storeNames],
@@ -264,7 +293,7 @@ export class AdminService {
         }
       }),
       drivers: [...drivers.values()].map((r) => {
-        const paidOut = paidByUser.get(r.user.id) || 0
+        const paidOut = paidFor(r.user.id, 'DRIVER')
         const balance = r.earningsOnline - r.cashOwed - paidOut
         return {
           ...r,
@@ -281,10 +310,28 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id: dto.userId } })
     if (!user) throw new NotFoundException('Bénéficiaire introuvable.')
     if (dto.amount === 0) throw new BadRequestException('Montant nul.')
+    // Un versement POSITIF est plafonné au solde disponible du bénéficiaire
+    // (un dépôt d'espèces — montant négatif — est toujours accepté).
+    if (dto.amount > 0) {
+      const b = await this.balances()
+      const row =
+        dto.role === 'DRIVER'
+          ? b.drivers.find((r: any) => r.user.id === dto.userId)
+          : dto.role === 'STORE'
+            ? b.stores.find((r: any) => r.user.id === dto.userId)
+            : b.stores.find((r: any) => r.user.id === dto.userId) || b.drivers.find((r: any) => r.user.id === dto.userId)
+      const available = row?.available ?? 0
+      if (dto.amount > available) {
+        throw new BadRequestException(
+          `Versement supérieur au solde disponible (${available} FCFA — le reste est sous délai de litige ou déjà versé).`,
+        )
+      }
+    }
     const payout = await this.prisma.payout.create({
       data: {
         userId: dto.userId,
         amount: dto.amount,
+        role: dto.role,
         provider: dto.provider,
         reference: dto.reference,
         note: dto.note,
@@ -328,13 +375,58 @@ export class AdminService {
     })
   }
 
-  setRole(userId: string, role: any) {
-    return this.prisma.user.update({ where: { id: userId }, data: { role }, select: { id: true, role: true } })
+  async setRole(userId: string, role: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+    if (!user) throw new NotFoundException('Utilisateur introuvable.')
+    // Ne jamais rétrograder le DERNIER super-admin (perte du contrôle de la plateforme).
+    if (user.role === Role.SUPERADMIN && role !== Role.SUPERADMIN) {
+      const admins = await this.prisma.user.count({ where: { role: Role.SUPERADMIN } })
+      if (admins <= 1) throw new BadRequestException('Impossible : c’est le dernier compte super-admin.')
+    }
+    const updated = await this.prisma.user.update({ where: { id: userId }, data: { role }, select: { id: true, role: true } })
+    // Promu livreur → un profil (en attente de vérification) doit exister.
+    if (role === Role.DRIVER) {
+      await this.prisma.driverProfile.upsert({ where: { userId }, update: {}, create: { userId, isAvailable: false } })
+    }
+    return updated
   }
 
   async deleteUser(userId: string) {
-    await this.prisma.user.delete({ where: { id: userId } })
-    return { ok: true }
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+    if (!user) throw new NotFoundException('Utilisateur introuvable.')
+    if (user.role === Role.SUPERADMIN) {
+      const admins = await this.prisma.user.count({ where: { role: Role.SUPERADMIN } })
+      if (admins <= 1) throw new BadRequestException('Impossible : c’est le dernier compte super-admin.')
+    }
+    // Une commande ou une livraison EN COURS ne doit jamais perdre son titulaire.
+    const [activeOrders, activeDeliveries] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          clientId: userId,
+          status: { in: [OrderStatus.AWAITING_DRIVER, OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY, OrderStatus.RETURNING] },
+        },
+      }),
+      this.prisma.delivery.count({
+        where: {
+          driverId: userId,
+          deliveredAt: null,
+          order: { status: { in: [OrderStatus.AWAITING_PICKUP, OrderStatus.IN_DELIVERY, OrderStatus.RETURNING] } },
+        },
+      }),
+    ])
+    if (activeOrders > 0 || activeDeliveries > 0) {
+      throw new BadRequestException('Ce compte a une commande ou une livraison en cours — attendez sa clôture.')
+    }
+    try {
+      await this.prisma.user.delete({ where: { id: userId } })
+      return { ok: true, deleted: true }
+    } catch {
+      // Historique relationnel (commandes, paiements...) → la suppression brute
+      // casserait la comptabilité : bloquez/suspendez le compte à la place.
+      throw new BadRequestException(
+        'Ce compte a un historique (commandes, paiements...) : suppression impossible. Suspendez ses enseignes ou son profil livreur, ou laissez l’utilisateur supprimer son compte (anonymisation).',
+      )
+    }
   }
 
   // -------- Vue d'ensemble (KPIs + signaux d'action contextuels) --------
@@ -360,16 +452,24 @@ export class AdminService {
       }),
       this.prisma.order.count({ where: { paymentStatus: PaymentStatus.REFUND_PENDING } }),
       this.prisma.order.count({ where: { status: { in: inProgress } } }),
-      // Codes de réception bloqués après 5 essais → intervention admin
-      this.prisma.order.count({ where: { codeAttempts: { gte: 5 }, status: { not: OrderStatus.DELIVERED } } }),
+      // Codes de réception bloqués après trop d'essais → intervention admin
+      this.prisma.order.count({ where: { codeAttempts: { gte: MAX_CODE_ATTEMPTS }, status: { not: OrderStatus.DELIVERED } } }),
       this.prisma.order.count({ where: { createdAt: { gte: startOfToday } } }),
       this.prisma.payment.aggregate({
         where: { status: PaymentStatus.PAID, updatedAt: { gte: startOfToday } },
         _sum: { amount: true, platformAmount: true },
       }),
-      // Livraisons figées (récupérées il y a > 3 h, toujours pas livrées)
+      // Livraisons à surveiller : récupérées il y a > 3 h sans issue, OU
+      // acceptées il y a > 3 h jamais récupérées (livreur disparu).
       this.prisma.delivery.count({
-        where: { pickedUpAt: { lt: stuckCutoff }, deliveredAt: null, order: { status: OrderStatus.IN_DELIVERY } },
+        where: {
+          deliveredAt: null,
+          failedAt: null,
+          OR: [
+            { pickedUpAt: { lt: stuckCutoff }, order: { status: OrderStatus.IN_DELIVERY } },
+            { pickedUpAt: null, acceptedAt: { lt: stuckCutoff }, order: { status: OrderStatus.AWAITING_PICKUP } },
+          ],
+        },
       }),
     ])
     return {

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator'
+import { IsBoolean, IsEnum, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator'
 import { PaymentProvider, Role, VerificationMethod } from '@prisma/client'
 
 export class VerifyStoreDto {
@@ -23,6 +23,8 @@ export class UpdateConfigDto {
   @IsOptional() @IsInt() @Min(1) trustedDriverDeliveries?: number
   @IsOptional() @IsInt() @Min(0) newDriverMaxOrderTotal?: number
   @IsOptional() @IsInt() @Min(0) payoutDelayDays?: number
+  // Minutes avant annulation automatique d'une commande en ligne jamais payée.
+  @IsOptional() @IsInt() @Min(0) pendingPaymentTtlMin?: number
 }
 
 export class SetRoleDto {
@@ -33,6 +35,8 @@ export class SetRoleDto {
 export class CreatePayoutDto {
   @IsString() userId: string
   @IsInt() amount: number
+  // Casquette concernée — indispensable pour un utilisateur à la fois gérant ET livreur.
+  @IsOptional() @IsIn(['STORE', 'DRIVER']) role?: 'STORE' | 'DRIVER'
   @IsOptional() @IsEnum(PaymentProvider) provider?: PaymentProvider
   @IsOptional() @IsString() reference?: string
   @IsOptional() @IsString() note?: string

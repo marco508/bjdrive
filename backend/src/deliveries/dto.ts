@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsString, Length } from 'class-validator'
+import { IsBoolean, IsNumber, IsOptional, IsString, Length, MaxLength } from 'class-validator'
 
 export class LocationDto {
   @IsNumber() lat: number
@@ -11,4 +11,9 @@ export class CompleteDto {
 
 export class AvailabilityDto {
   @IsBoolean() isAvailable: boolean
+}
+
+// Échec de livraison signalé par le livreur (client absent, refus de payer...).
+export class FailDto {
+  @IsOptional() @IsString() @MaxLength(300) reason?: string
 }

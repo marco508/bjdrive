@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../common/jwt-auth.guard'
 import { RolesGuard } from '../common/roles.guard'
 import { Roles, CurrentUser } from '../common/decorators'
 import { DeliveriesService } from './deliveries.service'
-import { AvailabilityDto, CompleteDto, LocationDto } from './dto'
+import { AvailabilityDto, CompleteDto, FailDto, LocationDto } from './dto'
 
 @Controller('deliveries')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,6 +41,12 @@ export class DeliveriesController {
   @Post(':orderId/complete')
   complete(@CurrentUser('userId') userId: string, @Param('orderId') orderId: string, @Body() dto: CompleteDto) {
     return this.deliveries.complete(userId, orderId, dto.code)
+  }
+
+  // Livraison impossible (client absent, refus de payer...) → retour enseigne.
+  @Post(':orderId/fail')
+  fail(@CurrentUser('userId') userId: string, @Param('orderId') orderId: string, @Body() dto: FailDto) {
+    return this.deliveries.reportFailure(userId, orderId, dto.reason)
   }
 
   @Post('location')

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { Prisma, Role, StockRequestStatus, StoreStatus } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { PrismaService } from '../prisma/prisma.service'
 import { GeoService } from '../common/geo.service'
 import { NotificationsService } from '../notifications/notifications.service'
@@ -144,8 +145,13 @@ export class StoresService {
   async importProducts(userId: string, storeId: string, dto: ImportProductsDto) {
     await this.assertStoreAccess(storeId, userId)
     const data: Prisma.ProductCreateManyInput[] = dto.products.map((p) => ({ ...p, storeId }))
-    const res = await this.prisma.product.createMany({ data })
-    return { imported: res.count }
+    try {
+      const res = await this.prisma.product.createMany({ data })
+      return { imported: res.count }
+    } catch (e: any) {
+      if (e?.code === 'P2002') throw new BadRequestException('Import refusé : un code-barres du fichier est déjà utilisé dans votre enseigne (ou en doublon dans le fichier).')
+      throw e
+    }
   }
 
   private async assertProductAccess(productId: string, userId: string) {
@@ -210,6 +216,9 @@ export class StoresService {
 
   // File des demandes (gérant / valideur). Un employé simple voit SES demandes.
   async listStockRequests(userId: string, storeId: string, status: StockRequestStatus = StockRequestStatus.PENDING) {
+    if (!Object.values(StockRequestStatus).includes(status)) {
+      throw new BadRequestException('Statut de demande invalide.')
+    }
     await this.assertStoreAccess(storeId, userId)
     const isApprover = await this.canManageStock(storeId, userId)
     return this.prisma.stockRequest.findMany({
@@ -320,7 +329,22 @@ export class StoresService {
     if (!staff || staff.staffStoreId !== storeId || staff.role !== Role.STAFF) {
       throw new NotFoundException('Employé introuvable pour cette enseigne.')
     }
-    await this.prisma.user.delete({ where: { id: staffId } })
+    // Détaché puis désactivé — PAS supprimé : ses messages dans les discussions
+    // de commandes (preuves en cas de litige) doivent survivre à son départ.
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.deleteMany({ where: { userId: staffId } }),
+      this.prisma.pushSubscription.deleteMany({ where: { userId: staffId } }),
+      this.prisma.user.update({
+        where: { id: staffId },
+        data: {
+          staffStoreId: null,
+          staffCanApprove: false,
+          name: `${staff.name} (parti)`,
+          email: `ex-staff-${staffId}@deleted.bjdrive`,
+          passwordHash: randomBytes(32).toString('hex'), // plus aucune connexion
+        },
+      }),
+    ])
     return { ok: true }
   }
 

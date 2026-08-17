@@ -99,6 +99,19 @@ function OrdersTab({ store, ordersQ, showToast }) {
     }
   }
 
+  async function confirmReturn(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmReturn(orderId, store.id)
+      showToast(r?.finalized ? 'Retour confirmé — stock restitué ✅' : 'Retour confirmé ✅')
+      ordersQ.reload()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
       {ordersQ.loading && <Loader />}
@@ -171,6 +184,21 @@ function OrdersTab({ store, ordersQ, showToast }) {
                   Remettre
                 </button>
               </div>
+            )}
+
+            {o.status === 'RETURNING' && (
+              o.part?.returnedAt ? (
+                <div className="badge" style={{ marginBottom: 8 }}>↩️ Retour confirmé — stock restitué</div>
+              ) : (
+                <div style={{ marginBottom: 8 }}>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                    Livraison échouée — le livreur ramène les produits. Confirmez à réception :
+                  </div>
+                  <button className="btn small" disabled={busyId === o.id} onClick={() => confirmReturn(o.id)}>
+                    Confirmer le retour des produits
+                  </button>
+                </div>
+              )
             )}
 
             {o.status !== 'PENDING_PAYMENT' && o.status !== 'CANCELLED' && <OrderChat orderId={o.id} />}

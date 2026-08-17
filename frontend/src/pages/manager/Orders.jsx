@@ -60,6 +60,20 @@ export default function ManagerOrders() {
     }
   }
 
+  // Livraison échouée : le livreur ramène les produits, l'enseigne confirme le retour.
+  async function confirmReturn(orderId) {
+    setBusyId(orderId)
+    try {
+      const r = await api.confirmReturn(orderId, store.id)
+      showToast(r?.finalized ? 'Retour confirmé — stock restitué ✅' : 'Retour de votre part confirmé ✅')
+      ordersQ.reload()
+    } catch (e) {
+      showToast(e.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (storesQ.loading) {
     return (
       <>
@@ -183,6 +197,22 @@ export default function ManagerOrders() {
                     Remettre
                   </button>
                 </div>
+              )}
+
+              {/* Livraison échouée : réceptionner le retour des produits */}
+              {o.status === 'RETURNING' && (
+                o.part?.returnedAt ? (
+                  <div className="badge" style={{ marginTop: 8 }}>↩️ Retour confirmé — stock restitué</div>
+                ) : (
+                  <div style={{ marginTop: 8 }}>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                      La livraison a échoué — le livreur vous ramène les produits. Confirmez à réception :
+                    </div>
+                    <button className="btn small" disabled={busyId === o.id} onClick={() => confirmReturn(o.id)}>
+                      Confirmer le retour des produits
+                    </button>
+                  </div>
+                )
               )}
 
               {o.status !== 'PENDING_PAYMENT' && o.status !== 'CANCELLED' && (

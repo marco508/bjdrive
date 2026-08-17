@@ -34,6 +34,7 @@ export class SettingsService {
       trustedDriverDeliveries: number
       newDriverMaxOrderTotal: number
       payoutDelayDays: number
+      pendingPaymentTtlMin: number
     }>,
   ) {
     return this.prisma.appConfig.upsert({
