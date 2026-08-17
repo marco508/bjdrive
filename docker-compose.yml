@@ -8,10 +8,23 @@
 # Renseignez vos clés (JWT, KkiaPay) dans un fichier .env à la racine
 # (voir backend/.env.example).
 
+# Rotation des logs : sans limite, un conteneur bavard peut remplir le disque
+# (vécu : 74 Go de logs sur un autre service du même serveur).
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   db:
     image: postgis/postgis:16-3.4
     container_name: bjdrive-db
+    # Sans cette ligne, la base ne redémarre PAS après un reboot du serveur
+    # (et l'API tourne alors dans le vide).
+    restart: unless-stopped
+    <<: *logging
     environment:
       POSTGRES_USER: bjdrive
       POSTGRES_PASSWORD: bjdrive
@@ -31,6 +44,7 @@ services:
   api:
     build: ./backend
     container_name: bjdrive-api
+    <<: *logging
     depends_on:
       db:
         condition: service_healthy
@@ -89,6 +103,7 @@ services:
         # Numéro WhatsApp du support (ex: 22997000000, sans +) — masqué si vide
         VITE_SUPPORT_WHATSAPP: "${VITE_SUPPORT_WHATSAPP:-}"
     container_name: bjdrive-web
+    <<: *logging
     depends_on:
       - api
     ports:
