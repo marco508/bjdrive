@@ -120,6 +120,24 @@ model User {
   staffCanApprove Boolean @default(false)
 
   stockRequests  StockRequest[] @relation("StockRequestedBy")
+  beneficiaries  Beneficiary[]  @relation("ClientBeneficiary")
+}
+
+// Proche au Bénin pour qui un client (souvent dans la diaspora) commande.
+// Enregistré une fois, réutilisable à chaque commande « pour un proche ».
+model Beneficiary {
+  id        String   @id @default(cuid())
+  client    User     @relation("ClientBeneficiary", fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  name      String
+  phone     String
+  address   String?
+  lat       Float
+  lng       Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
 }
 
 // Demande de modification de stock d'un employé, à valider par le gérant
@@ -292,6 +310,12 @@ model Order {
   destLng     Float
   destAddress String?
   destNote    String?
+  // Commande « pour un proche » (diaspora) : le client (souvent à l'étranger)
+  // commande pour un destinataire au Bénin. Le livreur appelle CE contact ;
+  // le suivi public (sans compte) est accessible via publicToken.
+  recipientName  String?
+  recipientPhone String?
+  publicToken    String? @unique
   // Départ de la tournée (enseigne la plus éloignée du client) — pour l'affichage carte
   originLat Float?
   originLng Float?

@@ -83,6 +83,12 @@ export default function Account() {
       )}
 
       <Card>
+        <Text style={{ fontWeight: '700', marginBottom: 4 }}>Mes proches au Bénin</Text>
+        <Text style={{ color: C.muted, fontSize: 13, marginBottom: 10 }}>Commandez pour votre famille : vous payez d'ici, ils reçoivent là-bas.</Text>
+        <Btn title="Gérer mes proches" variant="outline" onPress={() => router.push('/beneficiaries')} />
+      </Card>
+
+      <Card>
         <Text style={{ color: C.muted, fontSize: 14, lineHeight: 20 }}>
           BjDrive — vos courses livrées à domicile partout au Bénin, avec suivi du livreur en temps réel et code de
           réception sécurisé.

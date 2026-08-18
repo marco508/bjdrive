@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext.jsx'
 import { api } from '../../services/api.js'
 import { TopBar } from '../../components/ui.jsx'
@@ -21,8 +21,14 @@ export default function Checkout() {
   const [allowCash, setAllowCash] = useState(false)
   // Retrait sur place possible uniquement pour un panier mono-enseigne.
   const [fulfillment, setFulfillment] = useState('DELIVERY')
-  const canPickup = cartStores.length === 1
+  // Diaspora : commander pour soi ou pour un proche au Bénin.
+  const [orderFor, setOrderFor] = useState('ME')
+  const [benefs, setBenefs] = useState([])
+  const [benefId, setBenefId] = useState('')
+  const forRelative = orderFor === 'RELATIVE'
+  const canPickup = cartStores.length === 1 && !forRelative
   const isPickup = fulfillment === 'PICKUP' && canPickup
+  const selectedBenef = benefs.find((b) => b.id === benefId) || null
 
   useEffect(() => {
     api.publicConfig()
@@ -33,7 +39,16 @@ export default function Checkout() {
         if (c.allowCashOnDelivery) setPaymentMethod('CASH')
       })
       .catch(() => {})
+    api.beneficiaries().then((list) => setBenefs(list || [])).catch(() => {})
   }, [])
+
+  // Pour un proche : livraison prépayée par défaut (le proche ne paie rien).
+  useEffect(() => {
+    if (forRelative) {
+      setFulfillment('DELIVERY')
+      setPaymentMethod('KKIAPAY')
+    }
+  }, [forRelative])
 
   if (cartItems.length === 0) {
     return (
@@ -57,17 +72,28 @@ export default function Checkout() {
     }
   }
 
+  const canConfirm = forRelative ? !!benefId : (isPickup || !!pos)
+
   async function confirm() {
-    if (!isPickup && !pos) return
+    if (!canConfirm) return
     setBusy(true)
     try {
-      const order = await api.createOrder({
+      const base = {
         items: cartItems.map(({ product, qty }) => ({ productId: product.id, qty })),
-        ...(isPickup ? {} : { destLat: pos.lat, destLng: pos.lng, destAddress: address }),
         destNote: note,
         paymentMethod,
-        fulfillment: isPickup ? 'PICKUP' : 'DELIVERY',
-      })
+      }
+      let order
+      if (forRelative) {
+        // Livraison à un proche enregistré : adresse + contact repris côté serveur.
+        order = await api.createOrder({ ...base, fulfillment: 'DELIVERY', beneficiaryId: benefId })
+      } else {
+        order = await api.createOrder({
+          ...base,
+          ...(isPickup ? {} : { destLat: pos.lat, destLng: pos.lng, destAddress: address }),
+          fulfillment: isPickup ? 'PICKUP' : 'DELIVERY',
+        })
+      }
       clearCart()
       if (paymentMethod === 'CASH') {
         showToast(isPickup ? 'Commande envoyée — vous paierez sur place au retrait.' : 'Commande envoyée — vous paierez le livreur à la réception.')
@@ -88,6 +114,60 @@ export default function Checkout() {
     <>
       <TopBar title="Livraison à domicile" subtitle={cartStores.length > 1 ? `${cartStores.length} enseignes` : cartStores[0]?.name} back />
       <div className="screen">
+        <p className="section-title">Pour qui est cette commande ?</p>
+        <div className="card">
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
+            <input type="radio" name="orderFor" checked={orderFor === 'ME'} onChange={() => setOrderFor('ME')} />
+            <span>Pour moi</span>
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0' }}>
+            <input type="radio" name="orderFor" checked={forRelative} onChange={() => setOrderFor('RELATIVE')} style={{ marginTop: 3 }} />
+            <span>
+              Pour un proche au Bénin
+              <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+                Vous payez d'ici, il/elle reçoit là-bas. Livraison prépayée.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {forRelative ? (
+          <>
+            <p className="section-title">Livrer à quel proche ?</p>
+            {benefs.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center' }}>
+                <p className="muted" style={{ marginTop: 0 }}>Vous n'avez pas encore enregistré de proche.</p>
+                <Link className="btn" to="/client/beneficiaries" style={{ maxWidth: 240, margin: '0 auto', display: 'inline-block' }}>
+                  Ajouter un proche
+                </Link>
+              </div>
+            ) : (
+              <div className="card">
+                {benefs.map((b) => (
+                  <label key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                    <input type="radio" name="benef" checked={benefId === b.id} onChange={() => setBenefId(b.id)} style={{ marginTop: 3 }} />
+                    <span>
+                      <strong>{b.name}</strong> <span className="muted">· {b.phone}</span>
+                      {b.address && <span className="muted" style={{ display: 'block', fontSize: 12 }}>📍 {b.address}</span>}
+                    </span>
+                  </label>
+                ))}
+                <Link className="btn ghost small" to="/client/beneficiaries" style={{ marginTop: 8, display: 'inline-block' }}>
+                  Gérer mes proches
+                </Link>
+              </div>
+            )}
+            {selectedBenef && (
+              <div className="card" style={{ background: 'var(--green-soft)' }}>
+                <p style={{ margin: 0, fontSize: 14 }}>
+                  Le livreur appellera <strong>{selectedBenef.name}</strong> au {selectedBenef.phone}. Vous pourrez lui
+                  partager un lien de suivi une fois la commande payée.
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         <p className="section-title">Comment souhaitez-vous récupérer votre commande ?</p>
         <div className="card">
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0' }}>
@@ -153,8 +233,10 @@ export default function Checkout() {
         </div>
           </>
         )}
+          </>
+        )}
 
-        {allowCash && (
+        {allowCash && !forRelative && (
           <div className="card" style={{ marginTop: 14 }}>
             <p className="section-title" style={{ marginTop: 0 }}>Mode de paiement</p>
             <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0' }}>
@@ -192,8 +274,8 @@ export default function Checkout() {
       </div>
 
       <div className="footer-bar">
-        <button className="btn" onClick={confirm} disabled={busy || (!isPickup && !pos)}>
-          {busy ? 'Envoi…' : 'Commander'}
+        <button className="btn" onClick={confirm} disabled={busy || !canConfirm}>
+          {busy ? 'Envoi…' : forRelative ? 'Commander pour mon proche' : 'Commander'}
         </button>
       </div>
     </>

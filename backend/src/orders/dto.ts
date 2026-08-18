@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
   IsDateString,
@@ -32,6 +33,14 @@ export class CreateOrderDto {
   @IsOptional() @IsEnum(PaymentMethod) paymentMethod?: PaymentMethod
   // DELIVERY (défaut) ou PICKUP (le client passe chercher — une seule enseigne)
   @IsOptional() @IsEnum(Fulfillment) fulfillment?: Fulfillment
+
+  // ---- Commande « pour un proche » (diaspora) ----
+  // Soit un proche enregistré (beneficiaryId → adresse + contact repris),
+  // soit un destinataire saisi à la volée (recipientName + recipientPhone +
+  // destLat/destLng). Le livreur appellera CE contact.
+  @IsOptional() @IsString() beneficiaryId?: string
+  @IsOptional() @IsString() @MaxLength(80) recipientName?: string
+  @IsOptional() @IsString() @MaxLength(30) recipientPhone?: string
 }
 
 export class ScheduleDto {

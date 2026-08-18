@@ -124,6 +124,15 @@ export default function Account() {
           </div>
         )}
 
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Icon name="group" size={22} color="var(--green-dark)" />
+          <div style={{ flex: 1, fontSize: 14 }}>
+            Mes proches au Bénin
+            <span className="muted" style={{ display: 'block', fontSize: 12 }}>Commandez pour votre famille</span>
+          </div>
+          <button className="btn small outline" onClick={() => nav('/client/beneficiaries')}>Gérer</button>
+        </div>
+
         <WhatsAppSupport text="Bonjour BjDrive, j’ai besoin d’aide avec mon compte 👋" />
 
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -115,6 +115,12 @@ export const api = {
 
   // Commandes (client)
   createOrder: (dto) => post('/orders', dto),
+
+  // ---------- Proches (diaspora) ----------
+  beneficiaries: () => get('/beneficiaries'),
+  addBeneficiary: (dto) => post('/beneficiaries', dto),
+  updateBeneficiary: (id, dto) => patch(`/beneficiaries/${id}`, dto),
+  removeBeneficiary: (id) => del(`/beneficiaries/${id}`),
   myOrders: () => get('/orders/mine'),
   myStats: () => get('/orders/stats/mine'),
   order: (id) => get(`/orders/${id}`),

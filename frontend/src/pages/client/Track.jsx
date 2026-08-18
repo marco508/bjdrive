@@ -108,6 +108,17 @@ export default function Track() {
           </div>
         )}
 
+        {/* Commande pour un proche : lien de suivi à lui partager */}
+        {order.recipientName && order.publicToken && status !== 'DELIVERED' && status !== 'CANCELLED' && (
+          <div className="card" style={{ background: 'var(--green-soft)' }}>
+            <p className="section-title" style={{ marginTop: 0 }}>Pour {order.recipientName}</p>
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+              Partagez ce lien de suivi à votre proche — il pourra suivre la livraison sans compte.
+            </p>
+            <ShareTrack token={order.publicToken} recipient={order.recipientName} showToast={showToast} />
+          </div>
+        )}
+
         {status === 'DELIVERED' && <ReviewCard order={order} onDone={reload} showToast={showToast} />}
 
         {/* Livraison échouée : retour à l'enseigne puis clôture (remboursement si prépayée) */}
@@ -342,6 +353,40 @@ function ReviewCard({ order, onDone, showToast }) {
       <button className="btn" onClick={send} disabled={busy || nothing}>
         {busy ? 'Envoi…' : 'Envoyer mon avis'}
       </button>
+    </div>
+  )
+}
+
+// Bouton de partage du lien de suivi public (pour le proche destinataire).
+function ShareTrack({ token, recipient, showToast }) {
+  const url = `${window.location.origin}/suivi/${token}`
+  const message = `Bonjour ${recipient}, votre commande BjDrive arrive ! Suivez le livreur ici : ${url}`
+
+  async function share() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Suivi BjDrive', text: message, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        showToast('Lien de suivi copié ✅')
+      }
+    } catch {
+      /* annulé */
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <button className="btn small" onClick={share}>Partager le lien</button>
+      <a
+        className="btn small outline"
+        href={`https://wa.me/?text=${encodeURIComponent(message)}`}
+        target="_blank"
+        rel="noreferrer"
+        style={{ textDecoration: 'none' }}
+      >
+        Envoyer par WhatsApp
+      </a>
     </div>
   )
 }

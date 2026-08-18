@@ -11,6 +11,8 @@ import { MailService } from '../mail/mail.service'
 import { tourDistance, Point } from '../common/distance'
 import { computeOrderAmounts } from '../common/pricing'
 import { MAX_CODE_ATTEMPTS } from '../common/constants'
+import { randomBytes } from 'crypto'
+import { BeneficiariesService } from '../beneficiaries/beneficiaries.service'
 import { CreateOrderDto, ReviewDto, ScheduleDto } from './dto'
 
 // Un client ne peut pas accumuler les commandes en espèces non soldées :
@@ -27,6 +29,7 @@ export class OrdersService {
     private notifications: NotificationsService,
     private payments: PaymentsService,
     private mail: MailService,
+    private beneficiaries: BeneficiariesService,
   ) {}
 
   // Gérant OU employé de l'enseigne (commandes, préparation, retraits).
@@ -113,13 +116,40 @@ export class OrdersService {
       throw new BadRequestException('Le retrait sur place se fait auprès d’UNE seule enseigne à la fois.')
     }
     const firstStore = [...perStore.values()][0]
-    if (fulfillment === Fulfillment.DELIVERY && (dto.destLat == null || dto.destLng == null)) {
+
+    // ---- Destinataire (diaspora) ----
+    // Un proche enregistré fournit adresse + contact ; sinon on prend le
+    // destinataire saisi à la volée, ou par défaut le client lui-même.
+    let recipientName: string | null = null
+    let recipientPhone: string | null = null
+    let recipLat = dto.destLat
+    let recipLng = dto.destLng
+    let recipAddress = dto.destAddress
+    if (dto.beneficiaryId) {
+      if (fulfillment === Fulfillment.PICKUP) {
+        throw new BadRequestException('Le retrait sur place ne peut pas se faire pour un proche.')
+      }
+      const b = await this.beneficiaries.getOwned(clientId, dto.beneficiaryId)
+      recipientName = b.name
+      recipientPhone = b.phone
+      recipLat = b.lat
+      recipLng = b.lng
+      recipAddress = b.address ?? dto.destAddress
+    } else if (dto.recipientName || dto.recipientPhone) {
+      if (!dto.recipientName || !dto.recipientPhone) {
+        throw new BadRequestException('Nom ET téléphone du destinataire requis pour une commande destinée à un proche.')
+      }
+      recipientName = dto.recipientName
+      recipientPhone = dto.recipientPhone
+    }
+
+    if (fulfillment === Fulfillment.DELIVERY && (recipLat == null || recipLng == null)) {
       throw new BadRequestException('Position de livraison requise.')
     }
     const dest: Point =
       fulfillment === Fulfillment.PICKUP
         ? firstStore.points
-        : { lat: dto.destLat!, lng: dto.destLng! }
+        : { lat: recipLat!, lng: recipLng! }
     const { meters, origin } = tourDistance([...perStore.values()].map((g) => g.points), dest)
     const amounts = computeOrderAmounts(subtotal, meters, cfg)
     const deliveryFee = fulfillment === Fulfillment.PICKUP ? 0 : amounts.deliveryFee
@@ -161,8 +191,12 @@ export class OrdersService {
           total,
           destLat: dest.lat,
           destLng: dest.lng,
-          destAddress: fulfillment === Fulfillment.PICKUP ? firstStore.store.address : dto.destAddress,
+          destAddress: fulfillment === Fulfillment.PICKUP ? firstStore.store.address : recipAddress,
           destNote: dto.destNote,
+          recipientName,
+          recipientPhone,
+          // Jeton de suivi public (sans compte) — utile au proche destinataire.
+          publicToken: recipientName ? randomBytes(16).toString('hex') : null,
           originLat: origin?.lat,
           originLng: origin?.lng,
           receptionCode: this.genReceptionCode(),
@@ -200,6 +234,34 @@ export class OrdersService {
       }
     }
     return order
+  }
+
+  // Suivi PUBLIC (sans compte) via le jeton de la commande — pour le proche
+  // destinataire au Bénin. On n'expose que le strict nécessaire : statut,
+  // enseignes, position du livreur, ETA. JAMAIS le code de réception, les
+  // montants, ni les coordonnées du client (celui qui a payé, souvent à l'étranger).
+  async publicTrack(token: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { publicToken: token },
+      include: {
+        stores: { include: { store: { select: { name: true, emoji: true, lat: true, lng: true } } } },
+        delivery: { include: { driver: { select: { name: true, phone: true } } } },
+      },
+    })
+    if (!order) throw new NotFoundException('Suivi introuvable.')
+    return {
+      status: order.status,
+      recipientName: order.recipientName,
+      destAddress: order.destAddress,
+      destLat: order.destLat,
+      destLng: order.destLng,
+      originLat: order.originLat,
+      originLng: order.originLng,
+      scheduledDeliveryAt: order.scheduledDeliveryAt,
+      stores: order.stores.map((os) => ({ name: os.store.name, emoji: os.store.emoji, pickedUpAt: os.pickedUpAt })),
+      driver: order.delivery?.driver ? { name: order.delivery.driver.name, phone: order.delivery.driver.phone } : null,
+      fulfillment: order.fulfillment,
+    }
   }
 
   listMine(clientId: string) {

@@ -16,6 +16,8 @@ import Payment from './pages/client/Payment.jsx'
 import Track from './pages/client/Track.jsx'
 import ClientOrders from './pages/client/Orders.jsx'
 import Account from './pages/client/Account.jsx'
+import Beneficiaries from './pages/client/Beneficiaries.jsx'
+import PublicTrack from './pages/PublicTrack.jsx'
 
 import ManagerDashboard from './pages/manager/Dashboard.jsx'
 import ManagerProducts from './pages/manager/Products.jsx'
@@ -66,6 +68,8 @@ export default function App() {
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/register" element={<Auth mode="register" />} />
         <Route path="/reset" element={<Reset />} />
+        {/* Suivi public sans compte (proche destinataire au Bénin) */}
+        <Route path="/suivi/:token" element={<PublicTrack />} />
 
         {/* Client */}
         <Route path="/client" element={<RequireRole role="CLIENT" tabs={<ClientTabs />}><ClientHome /></RequireRole>} />
@@ -75,6 +79,7 @@ export default function App() {
         <Route path="/client/store/:id" element={<RequireRole role="CLIENT"><StorePage /></RequireRole>} />
         <Route path="/client/cart" element={<RequireRole role="CLIENT"><Cart /></RequireRole>} />
         <Route path="/client/checkout" element={<RequireRole role="CLIENT"><Checkout /></RequireRole>} />
+        <Route path="/client/beneficiaries" element={<RequireRole role="CLIENT"><Beneficiaries /></RequireRole>} />
         <Route path="/client/pay/:orderId" element={<RequireRole role="CLIENT"><Payment /></RequireRole>} />
         <Route path="/client/track/:orderId" element={<RequireRole role="CLIENT"><Track /></RequireRole>} />
 

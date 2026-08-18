@@ -89,6 +89,9 @@ export class DeliveriesService {
         destLat: o.destLat,
         destLng: o.destLng,
         destAddress: o.destAddress,
+        // Commande « pour un proche » : le livreur appelle CE contact, pas le client.
+        recipientName: o.recipientName,
+        recipientPhone: o.recipientPhone,
         itemCount: o.items.reduce((s: number, i: any) => s + i.qty, 0),
         storeCount: o.stores.length,
         earnings: o.deliveryFee,

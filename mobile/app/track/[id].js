@@ -1,8 +1,9 @@
 // Suivi de commande en temps réel : statut, code de réception, position livreur, avis.
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native'
+import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { api } from '../../src/api'
+import { WEB_URL } from '../../src/config'
 import { trackOrder } from '../../src/realtime'
 import { useApp } from '../../src/store'
 import ChatBox from '../../src/ChatBox'
@@ -147,6 +148,22 @@ export default function Track() {
           </Text>
           {order.paymentStatus === 'REFUND_PENDING' && <Text style={{ color: C.muted, fontSize: 13 }}>💸 Remboursement en cours de traitement.</Text>}
           {order.paymentStatus === 'REFUNDED' && <Text style={{ color: C.muted, fontSize: 13 }}>✅ Vous avez été remboursé.</Text>}
+        </Card>
+      )}
+
+      {order.recipientName && order.publicToken && !['DELIVERED', 'CANCELLED'].includes(status) && (
+        <Card style={{ backgroundColor: C.greenSoft }}>
+          <SectionTitle>Pour {order.recipientName}</SectionTitle>
+          <Text style={{ color: C.muted, fontSize: 13, marginBottom: 10 }}>
+            Partagez ce lien à votre proche — il suit la livraison sans compte.
+          </Text>
+          <Btn
+            title="Partager le lien de suivi"
+            onPress={() => {
+              const url = `${WEB_URL}/suivi/${order.publicToken}`
+              Share.share({ message: `Bonjour ${order.recipientName}, votre commande BjDrive arrive ! Suivez le livreur ici : ${url}` })
+            }}
+          />
         </Card>
       )}
 

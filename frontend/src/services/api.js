@@ -228,6 +228,19 @@ export const api = {
 
   // ---------- Commandes (client) ----------
   createOrder: (dto) => post('/orders', dto),
+
+  // ---------- Proches (diaspora) ----------
+  beneficiaries: () => get('/beneficiaries'),
+  addBeneficiary: (dto) => post('/beneficiaries', dto),
+  updateBeneficiary: (id, dto) => patch(`/beneficiaries/${id}`, dto),
+  removeBeneficiary: (id) => del(`/beneficiaries/${id}`),
+  // Suivi public (sans compte) — fetch direct, aucun jeton d'auth.
+  publicTrack: async (t) => {
+    const res = await fetch(`${API_URL}/public/orders/track/${encodeURIComponent(t)}`)
+    const data = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(data?.message || `Erreur ${res.status}`)
+    return data
+  },
   myOrders: () => get('/orders/mine'),
   order: (id) => get(`/orders/${id}`),
   rescheduleOrder: (id, iso) => patch(`/orders/${id}/schedule`, { scheduledDeliveryAt: iso }),

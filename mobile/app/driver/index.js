@@ -1,7 +1,7 @@
 // Espace livreur : vérification, courses proches (temps réel), cycle de livraison,
 // partage GPS continu, gains du jour et des 30 derniers jours.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, ScrollView, Text, View, RefreshControl } from 'react-native'
+import { Alert, ScrollView, Text, View, RefreshControl, Linking } from 'react-native'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
 import { api } from '../../src/api'
@@ -193,6 +193,9 @@ export default function DriverDashboard() {
                 <Text style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>💵 Encaisser {formatFCFA(a.cashToCollect)} auprès du client</Text>
               )}
               <Text style={{ color: C.muted, fontSize: 13, marginTop: 4 }} numberOfLines={1}>📍 {a.destAddress || 'Position GPS du client'}</Text>
+              {a.recipientName && (
+                <Text style={{ color: C.greenDark, fontSize: 13, marginTop: 2 }}>📦 Pour {a.recipientName} · {a.recipientPhone}</Text>
+              )}
               <Text style={{ color: C.muted, fontSize: 13, marginTop: 2 }}>
                 📦 {a.itemCount} articles · 🛣️ à {(a.distanceToStore / 1000).toFixed(1)} km
               </Text>
@@ -288,6 +291,18 @@ function ActiveDelivery({ d, onChanged }) {
         )}
       </RowBetween>
       <Text style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>📍 {order.destAddress || 'Position GPS du client'}</Text>
+      {order.recipientName && (
+        <View style={{ marginTop: 6, backgroundColor: C.greenSoft, borderRadius: 8, padding: 8 }}>
+          <Text style={{ fontSize: 13 }}>
+            📦 Pour <Text style={{ fontWeight: '700' }}>{order.recipientName}</Text>
+          </Text>
+          {order.recipientPhone && (
+            <Text style={{ fontSize: 13, color: C.greenDark }} onPress={() => Linking.openURL(`tel:${order.recipientPhone}`)}>
+              📞 Appeler {order.recipientPhone}
+            </Text>
+          )}
+        </View>
+      )}
 
       {order.status === 'AWAITING_PICKUP' &&
         stores.map((os) => (

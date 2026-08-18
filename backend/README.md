@@ -25,6 +25,10 @@ Filets automatiques : une commande en ligne **jamais payée expire** (stock rend
 
 À chaque étape : position GPS diffusée en temps réel (et **persistée** comme preuve), **discussion privée** de la commande (client + équipe enseigne + livreur), notifications push, et **facture nominative par e-mail** à l'encaissement.
 
+## Commander pour un proche (diaspora)
+
+Un client (souvent à l'étranger) peut commander **pour un proche au Bénin** : carnet de proches réutilisables (`/beneficiaries`), choix « pour moi / pour un proche » au paiement, position du proche saisie via son **lien de position WhatsApp/Google Maps**. Le livreur voit et appelle **le destinataire** (pas le client). Un **lien de suivi public** (`/public/orders/track/:token`, sans compte) est partageable au proche — il n'expose ni le code de réception, ni les montants, ni les coordonnées du client.
+
 ## Répartition des paiements
 
 Sur chaque commande payée : l'**enseigne** reçoit le montant des produits, le **livreur** les frais de livraison, la **plateforme** la commission (ajoutée au total client — affichée fusionnée dans « Livraison & service », détail sur demande). Montants ventilés dans `Payment` ; soldes calculés en continu avec **délai de litige configurable** avant éligibilité au versement ; versements manuels tracés (`Payout`) vers le compte Mobile Money vérifié. Commandes **cash** : le livreur encaisse, sa dette (total − ses frais) apparaît dans les soldes. **Retrait payé sur place** : l'enseigne encaisse tout et doit la commission à BjDrive (dette visible dans les soldes). Chaque transaction KkiaPay est **à usage unique** (liée à une seule commande), les versements sont **plafonnés au solde disponible** et ventilés par casquette (enseigne/livreur).

@@ -1,6 +1,6 @@
 // Livraison : position GPS, adresse, mode de paiement (KkiaPay ou espèces).
 import { useEffect, useState } from 'react'
-import { Alert, ScrollView, Text, Pressable, Linking } from 'react-native'
+import { Alert, ScrollView, Text, View, Pressable, Linking } from 'react-native'
 import * as Location from 'expo-location'
 import { useRouter } from 'expo-router'
 import { api } from '../src/api'
@@ -21,8 +21,14 @@ export default function Checkout() {
   const [locating, setLocating] = useState(false)
   // Retrait sur place : possible seulement pour un panier mono-enseigne.
   const [fulfillment, setFulfillment] = useState('DELIVERY')
-  const canPickup = cartStores.length === 1
+  // Diaspora : pour soi ou pour un proche au Bénin.
+  const [orderFor, setOrderFor] = useState('ME')
+  const [benefs, setBenefs] = useState([])
+  const [benefId, setBenefId] = useState('')
+  const forRelative = orderFor === 'RELATIVE'
+  const canPickup = cartStores.length === 1 && !forRelative
   const isPickup = fulfillment === 'PICKUP' && canPickup
+  const selectedBenef = benefs.find((b) => b.id === benefId) || null
 
   useEffect(() => {
     api.publicConfig()
@@ -32,7 +38,12 @@ export default function Checkout() {
         if (c.allowCashOnDelivery) setPaymentMethod('CASH')
       })
       .catch(() => {})
+    api.beneficiaries().then((l) => setBenefs(l || [])).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (forRelative) { setFulfillment('DELIVERY'); setPaymentMethod('KKIAPAY') }
+  }, [forRelative])
 
   async function locate() {
     setLocating(true)
@@ -48,17 +59,24 @@ export default function Checkout() {
     }
   }
 
+  const canConfirm = forRelative ? !!benefId : (isPickup || !!pos)
+
   async function confirm() {
-    if ((!isPickup && !pos) || cartItems.length === 0) return
+    if (!canConfirm || cartItems.length === 0) return
     setBusy(true)
     try {
-      const order = await api.createOrder({
+      const base = {
         items: cartItems.map(({ product, qty }) => ({ productId: product.id, qty })),
-        ...(isPickup ? {} : { destLat: pos.lat, destLng: pos.lng, destAddress: address }),
         destNote: note,
         paymentMethod,
-        fulfillment: isPickup ? 'PICKUP' : 'DELIVERY',
-      })
+      }
+      const order = forRelative
+        ? await api.createOrder({ ...base, fulfillment: 'DELIVERY', beneficiaryId: benefId })
+        : await api.createOrder({
+            ...base,
+            ...(isPickup ? {} : { destLat: pos.lat, destLng: pos.lng, destAddress: address }),
+            fulfillment: isPickup ? 'PICKUP' : 'DELIVERY',
+          })
       clearCart()
       if (paymentMethod === 'CASH') {
         router.replace(`/track/${order.id}`)
@@ -77,6 +95,56 @@ export default function Checkout() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <SectionTitle>Pour qui est cette commande ?</SectionTitle>
+      <Card>
+        {[
+          { key: 'ME', label: 'Pour moi', hint: null },
+          { key: 'RELATIVE', label: 'Pour un proche au Bénin', hint: "Vous payez d'ici, il/elle reçoit là-bas. Livraison prépayée." },
+        ].map((opt) => (
+          <Pressable key={opt.key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8 }} onPress={() => setOrderFor(opt.key)}>
+            <Text style={{ fontSize: 18 }}>{orderFor === opt.key ? '🔘' : '⚪'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14 }}>{opt.label}</Text>
+              {opt.hint && <Text style={{ color: C.muted, fontSize: 12 }}>{opt.hint}</Text>}
+            </View>
+          </Pressable>
+        ))}
+      </Card>
+
+      {forRelative && (
+        <>
+          <SectionTitle>Livrer à quel proche ?</SectionTitle>
+          {benefs.length === 0 ? (
+            <Card>
+              <Text style={{ color: C.muted, marginBottom: 10 }}>Vous n'avez pas encore enregistré de proche.</Text>
+              <Btn title="Ajouter un proche" onPress={() => router.push('/beneficiaries')} />
+            </Card>
+          ) : (
+            <Card>
+              {benefs.map((b) => (
+                <Pressable key={b.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.line }} onPress={() => setBenefId(b.id)}>
+                  <Text style={{ fontSize: 18 }}>{benefId === b.id ? '🔘' : '⚪'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600' }}>{b.name} <Text style={{ color: C.muted, fontWeight: '400' }}>· {b.phone}</Text></Text>
+                    {!!b.address && <Text style={{ color: C.muted, fontSize: 12 }}>📍 {b.address}</Text>}
+                  </View>
+                </Pressable>
+              ))}
+              <Btn title="Gérer mes proches" variant="outline" style={{ marginTop: 8, paddingVertical: 8 }} onPress={() => router.push('/beneficiaries')} />
+            </Card>
+          )}
+          {selectedBenef && (
+            <Card style={{ backgroundColor: C.greenSoft }}>
+              <Text style={{ fontSize: 14 }}>
+                Le livreur appellera <Text style={{ fontWeight: '700' }}>{selectedBenef.name}</Text> au {selectedBenef.phone}.
+              </Text>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!forRelative && (
+      <>
       <SectionTitle>Comment récupérer votre commande ?</SectionTitle>
       <Card>
         {[
@@ -115,8 +183,10 @@ export default function Checkout() {
       </Card>
         </>
       )}
+      </>
+      )}
 
-      {allowCash && (
+      {allowCash && !forRelative && (
         <Card>
           <SectionTitle>Mode de paiement</SectionTitle>
           {[
@@ -155,7 +225,7 @@ export default function Checkout() {
         </Text>
       </Card>
 
-      <Btn title={busy ? 'Envoi…' : 'Commander'} onPress={confirm} disabled={busy || (!isPickup && !pos)} />
+      <Btn title={busy ? 'Envoi…' : forRelative ? 'Commander pour mon proche' : 'Commander'} onPress={confirm} disabled={busy || !canConfirm} />
     </ScrollView>
   )
 }
